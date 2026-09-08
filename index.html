@@ -153,6 +153,12 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .pill.part{background:#FDF0D5;color:#7A5A12}
 .pill.none{background:#FBE0DD;color:#8A2B20}
 .lnk{display:inline-block;font-size:12.5px;color:var(--accent);margin:6px 12px 0 0;text-decoration:none;border-bottom:1px solid var(--line)}
+.urlbox{
+  display:block;margin-top:7px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+  background:#F5FAFE;font-size:11.5px;line-height:1.35;color:var(--accent);
+  word-break:break-all;text-decoration:none;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
 .day{padding:11px 12px;border-bottom:1px solid var(--line)}
 .day:last-child{border-bottom:0}
 .day h4{margin:0 0 3px;font-size:14px;font-weight:600}
@@ -868,8 +874,8 @@ function viewBook(t){
           ${b.prov ? " \u00b7 " + esc(b.prov) : ""}${b.ref ? " \u00b7 " + esc(b.ref) : ""}</div>
         ${b.cost ? paidPill(b) : ""}
         ${b.note ? `<div class="meta">${esc(b.note)}</div>` : ""}
-        <div>${b.url ? `<a class="lnk" href="${esc(b.url)}" target="_blank" rel="noopener">Open booking</a>` : ""}
-             ${b.email ? `<a class="lnk" href="${esc(b.email)}" target="_blank" rel="noopener">Confirmation email</a>` : ""}</div>
+        ${b.url ? `<a class="urlbox" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.url)}</a>` : ""}
+        ${b.email ? `<div><a class="lnk" href="${esc(b.email)}" target="_blank" rel="noopener">Confirmation email</a></div>` : ""}
       </div>`).join("")}</div>`;
   }
   return html + tools();
@@ -1155,6 +1161,8 @@ const learnTodo = (text, offset) => { if (!S.catTodo.some(c => c.text.toLowerCas
 document.addEventListener("click", e => {
   const tabBtn = e.target.closest("nav button");
   if (tabBtn){ tab = tabBtn.dataset.tab; render(); return; }
+
+  if (e.target.closest("a")) return;        /* let links be links */
 
   const b = e.target.closest("[data-act]");
   if (!b) return;
