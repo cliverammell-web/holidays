@@ -139,6 +139,11 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
   line-height:1;color:var(--accent);padding:0;
 }
 .chk[data-on="1"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.chk:disabled{opacity:.45;cursor:default}
+.locked{
+  background:#EFF6FD;border:1px solid var(--line);border-radius:8px;
+  padding:9px 11px;margin:0 0 12px;font-size:12.5px;color:var(--muted);
+}
 .txt{flex:1;min-width:0;word-break:break-word}
 .sub{display:block;font-size:12.5px;color:var(--muted)}
 .sub.late{color:var(--warn);font-weight:600}
@@ -229,7 +234,7 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
     <div class="field"><label for="f_dest">Destination</label><input id="f_dest" placeholder="Harrogate"></div>
     <div class="field"><label for="f_dep">Leaving</label><input id="f_dep" type="date"></div>
     <div class="field"><label for="f_ret">Coming back</label><input id="f_ret" type="date"></div>
-    <div class="field"><label for="f_trav">Travelling (comma separated)</label><input id="f_trav" placeholder="Clive, Sue"></div>
+    <div class="field"><label for="f_trav">Travelling (comma separated)</label><input id="f_trav" placeholder="Clive, Chris"></div>
     <p class="hint">Everyone named here gets their own packing list and can sign in on this device.</p>
   </form>
   <div class="dlgfoot">
@@ -348,6 +353,13 @@ function save(){
 }
 
 const trip = () => S.trips.find(t => t.id === S.activeTripId) || null;
+const owner = () => trip()?.travellers[0] || "";
+/* A trip with nobody named has no owner, so nothing is locked. */
+const isOwner = () => { const t = trip(); return !t || !t.travellers.length || user === owner(); };
+const ownedByUser = i => i.who === user;
+function refuse(){
+  alert(`Only ${owner()} can change this. Your own packing list is yours to edit.`);
+}
 const touch = o => { o.updatedAt = now(); };
 const travellers = () => (trip()?.travellers || []);
 
@@ -426,6 +438,11 @@ function renderHeader(){
       ? "1 trip saved · tap + to add another"
       : `${S.trips.length} trips saved · tap the name to switch between them`;
   }
+
+  const canEdit = isOwner();
+  document.getElementById("editTrip").hidden = !canEdit;
+  document.getElementById("newTrip").hidden = !canEdit;
+  document.getElementById("tripSel").disabled = !canEdit && S.trips.length > 1 ? false : false;
 
   const chip = document.getElementById("userChip");
   if (user && travellers().includes(user)){
@@ -562,8 +579,13 @@ function viewTake(t){
     </div>
     <div class="addrow second">
       <select id="takeCat" aria-label="Category">${TAKE_CATS.map(c => `<option>${c}</option>`).join("")}</select>
-      <select id="takeWho" aria-label="Whose item">${ownerOptions(t.travellers.length ? user : EVERYONE)}</select>
+      ${isOwner()
+        ? `<select id="takeWho" aria-label="Whose item">${ownerOptions(t.travellers.length ? user : EVERYONE)}</select>`
+        : `<select id="takeWho" aria-label="Whose item" disabled><option>${esc(user)}</option></select>`}
     </div>`;
+
+  if (!isOwner()) html += `<p class="locked">This is your own list — add and tick whatever you like.
+    Shared items are set by ${esc(owner())} and show here for reference.</p>`;
 
   if (!mine.length){
     html += `<div class="card"><div class="empty"><b>Nothing on your list yet</b>
@@ -582,9 +604,10 @@ function viewTake(t){
         <ul class="list">${items.map(i => `
           <li class="${i.packed ? "done" : ""}">
             <button class="chk" data-on="${i.packed ? 1 : 0}" data-act="tglTake" data-id="${i.id}"
+              ${isOwner() || ownedByUser(i) ? "" : "disabled"}
               aria-label="Mark ${esc(i.name)} packed">${i.packed ? "&#10003;" : ""}</button>
             <span class="txt">${esc(i.name)}${i.who === EVERYONE && t.travellers.length ? `<span class="sub">Shared</span>` : ""}</span>
-            <button class="del" data-act="delTake" data-id="${i.id}" aria-label="Remove">&times;</button>
+            ${isOwner() || ownedByUser(i) ? `<button class="del" data-act="delTake" data-id="${i.id}" aria-label="Remove">&times;</button>` : ""}
           </li>`).join("")}</ul></div>`;
     });
   }
@@ -601,8 +624,10 @@ function viewTake(t){
 /* ---------- Bring back (shared) ---------- */
 function viewBring(t){
   const got = t.bring.filter(i => i.got).length;
-  let html = `
-    <div class="addrow second">
+  const RO = !isOwner();
+  let html = RO
+    ? `<p class="locked">Only ${esc(owner())} can change this list. You can see it, but not edit it.</p>`
+    : `<div class="addrow second">
       <input id="bringIn" placeholder="Add something to bring back" autocomplete="off">
       <button class="btn" data-act="addBring">Add</button>
     </div>`;
@@ -616,15 +641,15 @@ function viewBring(t){
       <div class="cardhead"><h3>Bring back</h3><span class="count">${got} of ${t.bring.length} got</span></div>
       <ul class="list">${t.bring.map(i => `
         <li class="${i.got ? "done" : ""}">
-          <button class="chk" data-on="${i.got ? 1 : 0}" data-act="tglBring" data-id="${i.id}"
+          <button class="chk" data-on="${i.got ? 1 : 0}" data-act="tglBring" data-id="${i.id}" ${RO ? "disabled" : ""}
             aria-label="Mark ${esc(i.name)} got">${i.got ? "&#10003;" : ""}</button>
           <span class="txt">${esc(i.name)}${i.who ? `<span class="sub">For ${esc(i.who)}</span>` : ""}</span>
-          <button class="del" data-act="delBring" data-id="${i.id}" aria-label="Remove">&times;</button>
+          ${RO ? "" : `<button class="del" data-act="delBring" data-id="${i.id}" aria-label="Remove">&times;</button>`}
         </li>`).join("")}</ul></div>`;
   }
 
   const onList = new Set(t.bring.map(i => i.name.toLowerCase()));
-  const sugg = S.catBring.filter(c => !onList.has(c.name.toLowerCase())).slice(0, 30);
+  const sugg = RO ? [] : S.catBring.filter(c => !onList.has(c.name.toLowerCase())).slice(0, 30);
   if (sugg.length){
     html += `<div class="card"><div class="chiphead">Things you usually bring back</div>
       <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickBring" data-id="${c.id}">${esc(c.name)}</button>`).join("")}</div></div>`;
@@ -650,11 +675,13 @@ function todoRow(t, i){
   const w = whenLabel(todoDue(t, i));
   const late = !i.done && w.late;
   return `<li class="${i.done ? "done" : ""}">
-    <button class="chk" data-on="${i.done ? 1 : 0}" data-act="tglTodo" data-id="${i.id}" aria-label="Mark done">${i.done ? "&#10003;" : ""}</button>
+    <button class="chk" data-on="${i.done ? 1 : 0}" data-act="tglTodo" data-id="${i.id}" ${isOwner() ? "" : "disabled"} aria-label="Mark done">${i.done ? "&#10003;" : ""}</button>
     <span class="txt">${esc(i.text)}
-      <button class="datebtn ${late ? "late" : ""}" data-act="pickDate" data-id="${i.id}"
-        aria-label="Change the date for ${esc(i.text)}">${w.text}</button></span>
-    <button class="del" data-act="delTodo" data-id="${i.id}" aria-label="Remove">&times;</button>
+      ${isOwner()
+        ? `<button class="datebtn ${late ? "late" : ""}" data-act="pickDate" data-id="${i.id}"
+             aria-label="Change the date for ${esc(i.text)}">${w.text}</button>`
+        : `<span class="sub ${late ? "late" : ""}">${w.text}</span>`}</span>
+    ${isOwner() ? `<button class="del" data-act="delTodo" data-id="${i.id}" aria-label="Remove">&times;</button>` : ""}
   </li>`;
 }
 
@@ -663,8 +690,10 @@ function viewTodo(t){
   const open = t.todo.filter(i => !i.done).sort(byDate);
   const done = t.todo.filter(i => i.done).sort(byDate);
 
-  let html = `
-    <div class="addrow second">
+  const RO = !isOwner();
+  let html = RO
+    ? `<p class="locked">Only ${esc(owner())} can change these jobs. You can see what's outstanding.</p>`
+    : `<div class="addrow second">
       <input id="todoIn" placeholder="Add a job" autocomplete="off">
       <button class="btn" data-act="addTodo">Add</button>
     </div>`;
@@ -691,7 +720,7 @@ function viewTodo(t){
   }
 
   const onList = new Set(t.todo.map(i => i.text.toLowerCase()));
-  const sugg = S.catTodo.filter(c => !onList.has(c.text.toLowerCase()));
+  const sugg = RO ? [] : S.catTodo.filter(c => !onList.has(c.text.toLowerCase()));
   if (sugg.length){
     html += `<div class="card"><div class="chiphead">Your usual jobs — tap one and pick its date</div>
       <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickTodo" data-id="${c.id}">${esc(c.text)}</button>`).join("")}
@@ -703,7 +732,7 @@ function viewTodo(t){
 function tools(){
   return `<div class="toolbar">
     <button class="btn ghost" data-act="export">Export a backup</button>
-    <button class="btn ghost" data-act="import">Load a backup</button>
+    ${isOwner() ? `<button class="btn ghost" data-act="import">Load a backup</button>` : ""}
   </div>
   <p class="count" style="margin-top:8px">Everything saves as you type. Every trip stays in the list at the top until you delete it.</p>`;
 }
@@ -731,13 +760,25 @@ document.addEventListener("click", e => {
   if (a === "tglShowDone"){ showDone = !showDone; render(); return; }
   if (!t) return;
 
+  /* Everything except a person's own packing list belongs to the first-named traveller */
+  const LOCKED = new Set(["addBring","quickBring","tglBring","delBring",
+                          "addTodo","quickTodo","allTodo","tglTodo","delTodo",
+                          "pickDate","import"]);
+  if (!isOwner()){
+    if (LOCKED.has(a)) return refuse();
+    if (a === "tglTake" || a === "delTake"){
+      const it = t.take.find(x => x.id === id);
+      if (!it || !ownedByUser(it)) return refuse();
+    }
+  }
+
   const val = s => { const el = document.getElementById(s); return el ? el.value.trim() : ""; };
 
   switch (a){
     case "addTake": {
       const name = val("takeIn"); if (!name) return;
       const cat = document.getElementById("takeCat").value;
-      const who = document.getElementById("takeWho").value;
+      const who = isOwner() ? document.getElementById("takeWho").value : user;
       t.take.push({ id: uid(), name, cat, who, packed: false, updatedAt: now() });
       learnTake(name, cat); touch(t); break;
     }
