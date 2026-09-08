@@ -1405,8 +1405,21 @@ const KDF_SALT = "crapps.uk/trips/v1";
 const KDF_ROUNDS = 250000;
 let keyCache = { pass: null, key: null, room: null };
 
-const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
-const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+/* Converted in chunks: spreading a whole array into fromCharCode overflows the
+   call stack once the document passes roughly 100KB. */
+function b64(buf){
+  const bytes = new Uint8Array(buf);
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 8192){
+    out += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  }
+  return btoa(out);
+}
+function unb64(str){
+  const bin = atob(str), out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 
 async function keysFor(pass){
   if (keyCache.pass === pass) return keyCache;
