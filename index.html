@@ -301,9 +301,26 @@ const SEED_TODO = [
   ["Water off, windows shut, lock up", 0]
 ];
 
+/* ---------- storage (survives sandboxes with no localStorage) ---------- */
+let memOnly = false;
+const mem = {};
+
+function lsGet(k){
+  try{ return localStorage.getItem(k); }
+  catch(e){ memOnly = true; return mem[k] ?? null; }
+}
+function lsSet(k, v){
+  try{ localStorage.setItem(k, v); }
+  catch(e){ memOnly = true; mem[k] = v; }
+}
+function lsDel(k){
+  try{ localStorage.removeItem(k); }catch(e){}
+  delete mem[k];
+}
+
 /* ---------- store ---------- */
 let S = load();
-let user = localStorage.getItem(UKEY) || "";
+let user = lsGet(UKEY) || "";
 
 function blankStore(){
   return {
@@ -316,7 +333,7 @@ function blankStore(){
 }
 function load(){
   try{
-    const raw = localStorage.getItem(KEY);
+    const raw = lsGet(KEY);
     if (!raw) return blankStore();
     const s = JSON.parse(raw);
     if (!s || !Array.isArray(s.trips)) return blankStore();
@@ -327,8 +344,7 @@ function load(){
 }
 function save(){
   S.updatedAt = now();
-  try{ localStorage.setItem(KEY, JSON.stringify(S)); }
-  catch(e){ alert("Couldn't save — device storage is full or blocked."); }
+  lsSet(KEY, JSON.stringify(S));
 }
 
 const trip = () => S.trips.find(t => t.id === S.activeTripId) || null;
@@ -424,20 +440,34 @@ function renderHeader(){
 
   const out = days(todayISO(), t.depart);
   const len = days(t.depart, t.ret);
-  let pos = 0, note = "";
+  let pos = 0, box;
 
-  if (out === null){ note = "Add your dates to start the countdown"; }
-  else if (out > 0){ note = out === 1 ? "Leaving tomorrow" : `${out} days to go`; pos = Math.max(4, 100 - Math.min(100, out)); }
-  else if (len !== null && -out <= len){ note = `Day ${-out + 1} of ${len + 1}`; pos = 100; }
-  else { note = "This trip has been and gone"; pos = 100; }
+  if (out === null){
+    box = `<div class="jbox quiet"><b>No dates</b><span>tap the pencil</span></div>`;
+  } else if (out > 1){
+    pos = Math.max(4, 100 - Math.min(100, out));
+    box = `<div class="jbox"><b>${out}</b><span>days to go</span></div>`;
+  } else if (out === 1){
+    pos = 96;
+    box = `<div class="jbox"><b>1</b><span>day to go</span></div>`;
+  } else if (out === 0){
+    pos = 100;
+    box = `<div class="jbox"><b>Today</b><span>we leave</span></div>`;
+  } else if (len !== null && -out <= len){
+    pos = 100;
+    box = `<div class="jbox"><b>Day ${-out + 1}</b><span>of ${len + 1}</span></div>`;
+  } else {
+    pos = 100;
+    box = `<div class="jbox quiet"><b>Home</b><span>trip finished</span></div>`;
+  }
 
   j.innerHTML = `
     <div class="jrow">
-      <div>Leaving<b>${fmt(t.depart)}</b></div>
-      <div>${esc(t.dest || "Back home")}<b>${fmt(t.ret)}</b></div>
+      <div class="jend">Leaving<b>${fmt(t.depart)}</b></div>
+      ${box}
+      <div class="jend right">${esc(t.dest || "Back home")}<b>${fmt(t.ret)}</b></div>
     </div>
-    <div class="jtrack"><div class="jfill" style="width:${pos}%"></div><div class="jdot" style="left:${pos}%"></div></div>
-    <div class="jnote">${esc(note)}${len !== null && len >= 0 ? ` · ${len + 1} days away` : ""}</div>`;
+    <div class="jtrack"><div class="jfill" style="width:${pos}%"></div><div class="jdot" style="left:${pos}%"></div></div>`;
 }
 
 /* ---------- tabs ---------- */
@@ -477,6 +507,13 @@ function render(){
   if (needsSignIn()){ nav.hidden = true; v.innerHTML = viewSignIn(); return; }
 
   nav.hidden = false; renderTabs();
+  if (memOnly && !document.getElementById("memWarn")){
+    const p = document.createElement("p");
+    p.id = "memWarn"; p.className = "count";
+    p.style.cssText = "background:#FFF3CD;border:1px solid #E6D08A;border-radius:8px;padding:9px 11px;margin:0 0 12px";
+    p.textContent = "This preview can't save to the device — anything you enter will disappear when you close the page. It saves normally once the file is opened from a web address.";
+    v.before(p);
+  }
   const t = trip();
   if (tab === "take")  v.innerHTML = viewTake(t);
   if (tab === "bring") v.innerHTML = viewBring(t);
@@ -687,8 +724,8 @@ document.addEventListener("click", e => {
   if (!b) return;
   const a = b.dataset.act, id = b.dataset.id, t = trip();
 
-  if (a === "signin"){ user = b.dataset.name; localStorage.setItem(UKEY, user); render(); return; }
-  if (a === "signout"){ user = ""; localStorage.removeItem(UKEY); render(); return; }
+  if (a === "signin"){ user = b.dataset.name; lsSet(UKEY, user); render(); return; }
+  if (a === "signout"){ user = ""; lsDel(UKEY); render(); return; }
   if (a === "export") return doExport();
   if (a === "import") return doImport();
   if (a === "tglShowDone"){ showDone = !showDone; render(); return; }
