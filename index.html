@@ -170,6 +170,14 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .gauge{height:9px;border-radius:999px;background:var(--line);overflow:hidden;margin:9px 12px}
 .gauge i{display:block;height:100%;background:var(--accent-hi)}
 .gauge i.over{background:var(--warn)}
+.split{position:relative;height:22px;border-radius:6px;overflow:hidden;margin:8px 12px 4px;background:var(--accent-soft);display:flex}
+.split i{display:block;height:100%}
+.split i.home{background:var(--accent-hi)}
+.split i.away{background:#C9DCEE}
+.split u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--warn);text-decoration:none}
+.splitkey{display:flex;justify-content:space-between;gap:8px;margin:0 12px 12px;font-size:11.5px;color:var(--muted)}
+.splitkey b{color:var(--ink);font-weight:600}
+.yr{padding:10px 12px 0;font-size:14.5px;font-weight:600}
 .locked{
   background:#EFF6FD;border:1px solid var(--line);border-radius:8px;
   padding:9px 11px;margin:0 0 12px;font-size:12.5px;color:var(--muted);
@@ -1039,7 +1047,7 @@ function viewDays(){
     let longest = 0, longestFrom = null;
     merged.forEach(r => { const n = days(r.from, r.to) + 1; if (n > longest){ longest = n; longestFrom = r.from; } });
     const FIVE = 1826;                                  /* five consecutive years */
-    const away = yearTotals(all);
+    const away = yearTotals(merged);
     const yrs = [...new Set([...Object.keys(away), todayISO().slice(0, 4)])].sort().reverse().slice(0, 5);
 
     html += `<div class="card">
@@ -1056,18 +1064,33 @@ function viewDays(){
        not settled ground.</p>
 
     <div class="card">
-      <div class="cardhead"><h3>Days in Spain each year</h3><span class="count">183 marks tax residency</span></div>
+      <div class="cardhead"><h3>Where the year is spent</h3><span class="count">red line = 183 days</span></div>
       ${yrs.map(y => {
         const isLeap = (+y % 4 === 0 && +y % 100 !== 0) || +y % 400 === 0;
-        const inSpain = (isLeap ? 366 : 365) - (away[y] || 0);
-        return `<div class="tot"><span>${y}<span class="sub">${away[y] || 0} away</span></span><b>${inSpain} in Spain</b></div>
-        ${gauge(Math.min(inSpain, 365), 183)}`;
+        const total = isLeap ? 366 : 365;
+        const out = Math.min(away[y] || 0, total);
+        const home = total - out;
+        return `<div class="yr">${y}</div>
+        <div class="split">
+          <i class="home" style="width:${home / total * 100}%"></i>
+          <i class="away" style="width:${out / total * 100}%"></i>
+          <u style="left:${183 / total * 100}%" title="183 days"></u>
+        </div>
+        <div class="splitkey">
+          <span><b>${home}</b> days in Spain</span>
+          <span><b>${out}</b> away</span>
+          <span>${home >= 183 ? "above" : "below"} the 183 mark</span>
+        </div>`;
       }).join("")}
     </div>
-    <p class="count">A rough count only: it assumes every day not on a listed trip was spent in
-       Spain. Tax residency is a separate question from your right to live here and does not turn
-       on the day count alone — where your main economic interests and family sit also weigh in.
-       Worth a word with a gestor rather than a reading off this screen.</p>`;
+    <p class="count">Dark blue is time in Spain, pale blue is time away. The red line sits at 183
+       days. Staying to the right of it is the normal position for a resident here — spending
+       <em>more</em> than 183 days in Spain is what makes you tax resident, so a bar reaching past
+       the line is expected, not a warning.</p>
+    <p class="count">A rough count: it assumes every day not on a listed trip was spent in Spain,
+       so years where you have entered no trips will read as a full year at home. Tax residency
+       does not turn on the day count alone — where your main economic interests and family sit
+       also weigh in. Worth a word with a gestor rather than a reading off this screen.</p>`;
 
     const { peak } = schengenPeak(schengen);
     html += `<div class="card"><div class="cardhead"><h3>When you move to the UK</h3></div>
