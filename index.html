@@ -973,6 +973,18 @@ function schengenPeak(ranges){
   return { peak, when };
 }
 
+/* Trips that touch or overlap form one unbroken absence */
+function mergeRanges(ranges){
+  const rs = [...ranges].sort((a, b) => a.from.localeCompare(b.from));
+  const out = [];
+  rs.forEach(r => {
+    const last = out[out.length - 1];
+    if (last && r.from <= addDays(last.to, 1)){ if (r.to > last.to) last.to = r.to; }
+    else out.push({ from: r.from, to: r.to });
+  });
+  return out;
+}
+
 function yearTotals(ranges){
   const byYear = {};
   ranges.forEach(r => {
@@ -993,7 +1005,6 @@ function gauge(used, limit){
 function viewDays(){
   const RO = !isOwner();
   const res = S.settings.residence;
-  const limit = Number(S.settings.outLimit) || 183;
 
   let html = `<div class="card">
     <div class="cardhead"><h3>Where do you live?</h3></div>
@@ -1024,23 +1035,46 @@ function viewDays(){
        arrive and the day you leave both counted. Trips marked outside Schengen — the UK,
        Ireland, and non-Schengen countries — are ignored, as the rules intend.</p>`;
   } else {
+    const merged = mergeRanges(all);
+    let longest = 0, longestFrom = null;
+    merged.forEach(r => { const n = days(r.from, r.to) + 1; if (n > longest){ longest = n; longestFrom = r.from; } });
+    const FIVE = 1826;                                  /* five consecutive years */
     const away = yearTotals(all);
-    const yrs = Object.keys(away).sort().reverse().slice(0, 5);
+    const yrs = [...new Set([...Object.keys(away), todayISO().slice(0, 4)])].sort().reverse().slice(0, 5);
+
     html += `<div class="card">
-      <div class="cardhead"><h3>Days outside Spain</h3><span class="count">watching ${limit} a year</span></div>
-      ${yrs.length ? yrs.map(y => `
-        <div class="tot"><span>${y}</span><b>${away[y]} day${away[y] === 1 ? "" : "s"}</b></div>
-        ${gauge(away[y], limit)}`).join("") : `<div class="empty">No dated trips yet.</div>`}
+      <div class="cardhead"><h3>Longest unbroken absence</h3><span class="count">limit 5 consecutive years</span></div>
+      <div class="tot big"><span>${longest ? "Longest trip away" : "No dated trips yet"}</span><b>${longest} day${longest === 1 ? "" : "s"}</b></div>
+      ${gauge(longest, FIVE)}
+      ${longestFrom ? `<div class="tot"><span>Starting</span><b>${fmt(longestFrom)}</b></div>` : ""}
+      <div class="tot"><span>Of the five years allowed</span><b>${(longest / FIVE * 100).toFixed(1)}%</b></div>
     </div>
-    <p class="count">Long absences can matter for a Spanish residence permit and for where you
-       count as tax resident. The threshold above is a marker you set yourself, not a rule —
-       check your own position with a gestor or adviser.</p>`;
+    <p class="count">Under Article 15(3) of the Withdrawal Agreement, permanent residence is lost
+       only after more than five <em>consecutive</em> years away, so ordinary holidays never
+       threaten it — coming back resets the clock. Note that Spain has not spelled out what
+       counts as a return for this purpose, so a long absence broken only by a brief visit is
+       not settled ground.</p>
+
+    <div class="card">
+      <div class="cardhead"><h3>Days in Spain each year</h3><span class="count">183 marks tax residency</span></div>
+      ${yrs.map(y => {
+        const isLeap = (+y % 4 === 0 && +y % 100 !== 0) || +y % 400 === 0;
+        const inSpain = (isLeap ? 366 : 365) - (away[y] || 0);
+        return `<div class="tot"><span>${y}<span class="sub">${away[y] || 0} away</span></span><b>${inSpain} in Spain</b></div>
+        ${gauge(Math.min(inSpain, 365), 183)}`;
+      }).join("")}
+    </div>
+    <p class="count">A rough count only: it assumes every day not on a listed trip was spent in
+       Spain. Tax residency is a separate question from your right to live here and does not turn
+       on the day count alone — where your main economic interests and family sit also weigh in.
+       Worth a word with a gestor rather than a reading off this screen.</p>`;
 
     const { peak } = schengenPeak(schengen);
     html += `<div class="card"><div class="cardhead"><h3>When you move to the UK</h3></div>
-      <div style="padding:12px" class="count">Once you switch this page to United Kingdom, the
-        Schengen 90/180 rule starts applying to your trips back. On the trips already entered,
-        the busiest 180-day stretch inside Schengen holds ${peak} days — the limit is 90.</div></div>`;
+      <div style="padding:12px" class="count">Your residence here means the Schengen 90/180 limit
+        does not apply to you now. Once you switch this page to United Kingdom it starts counting
+        your trips back. On the trips already entered, the busiest 180-day stretch inside Schengen
+        holds ${peak} days, against a limit of 90.</div></div>`;
   }
 
   html += `<div class="card"><div class="cardhead"><h3>Every dated trip</h3></div>
