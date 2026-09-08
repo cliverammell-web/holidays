@@ -178,7 +178,11 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .splitkey{display:flex;justify-content:space-between;gap:8px;margin:0 12px 12px;font-size:11.5px;color:var(--muted)}
 .splitkey b{color:var(--ink);font-weight:600}
 .yr{padding:10px 12px 0;font-size:14.5px;font-weight:600}
-.sum{padding:0 12px 12px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.sum{padding:0 12px 6px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.room{margin:0 12px 12px;padding:8px 10px;border-radius:8px;background:var(--accent-soft);
+  font-size:12.5px;color:var(--accent)}
+.room b{font-weight:700}
+.room.gone{background:#FBE0DD;color:#8A2B20}
 .locked{
   background:#EFF6FD;border:1px solid var(--line);border-radius:8px;
   padding:9px 11px;margin:0 0 12px;font-size:12.5px;color:var(--muted);
@@ -369,7 +373,7 @@ const EVERYONE = "Everyone";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const now = () => new Date().toISOString();
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => new Date().toISOString().slice(0, 10);   /* already UTC */
 
 const TAKE_CATS = ["Documents","Clothes","Toiletries","Tech","Medical","Car","Pet","Other"];
 
@@ -480,19 +484,24 @@ function newTrip(){
 }
 
 /* ---------- dates ---------- */
+/* All date maths is done in UTC. Building dates at local midnight and reading
+   them back with toISOString() shifts the day in any timezone east of Greenwich. */
+const D = iso => new Date(iso + "T00:00:00Z");
+const isoOf = d => d.toISOString().slice(0, 10);
+
 function days(from, to){
   if (!from || !to) return null;
-  return Math.round((new Date(to + "T00:00") - new Date(from + "T00:00")) / 86400000);
+  return Math.round((D(to) - D(from)) / 86400000);
 }
 function fmt(iso){
   if (!iso) return "—";
-  return new Date(iso + "T00:00").toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
+  return D(iso).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric", timeZone:"UTC" });
+}
+function shift(iso, n){
+  const d = D(iso); d.setUTCDate(d.getUTCDate() + n); return isoOf(d);
 }
 function dueDate(depart, offset){
-  if (!depart) return null;
-  const d = new Date(depart + "T00:00");
-  d.setDate(d.getDate() + offset);
-  return d.toISOString().slice(0, 10);
+  return depart ? shift(depart, offset) : null;
 }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const initials = n => n.trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -531,7 +540,7 @@ function renderHeader(){
   const today = todayISO();
 
   const opt = t => {
-    const when = t.depart ? new Date(t.depart + "T00:00").toLocaleDateString("en-GB", { month:"short", year:"numeric" }) : "no dates";
+    const when = t.depart ? D(t.depart).toLocaleDateString("en-GB", { month:"short", year:"numeric", timeZone:"UTC" }) : "no dates";
     return `<option value="${t.id}"${t.id === S.activeTripId ? " selected" : ""}>${esc(t.name || "Untitled trip")} — ${when}</option>`;
   };
 
@@ -872,8 +881,8 @@ function viewBook(t){
 function dayList(t){
   if (!t.depart) return [];
   const out = [], last = t.ret || t.depart;
-  let d = new Date(t.depart + "T00:00"), end = new Date(last + "T00:00"), guard = 0;
-  while (d <= end && guard++ < 400){ out.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+  let d = t.depart, guard = 0;
+  while (d <= last && guard++ < 400){ out.push(d); d = shift(d, 1); }
   return out;
 }
 
@@ -895,7 +904,7 @@ function viewPlan(t){
       : `Staying at ${esc(b.name || b.prov || "")}`).join(" \u00b7 ");
     const note = t.plan[date] || "";
     return `<div class="day">
-      <h4>${new Date(date + "T00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" })}
+      <h4>${D(date).toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", timeZone:"UTC" })}
         <span class="count" style="font-weight:400"> \u00b7 day ${n + 1} of ${dl.length}</span></h4>
       ${bits ? `<div class="bits">${bits}</div>` : ""}
       <button class="plan ${note ? "" : "blank"}" ${RO ? "disabled" : `data-act="editPlan" data-date="${date}"`}>${
@@ -944,7 +953,7 @@ function viewMoney(t){
 /* ============================================================
    Days away — Schengen 90/180 and time out of the country
    ============================================================ */
-const addDays = (iso, n) => { const d = new Date(iso + "T00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const addDays = (iso, n) => shift(iso, n);
 
 /* Every dated trip as an inclusive day range. Entry and exit days both count. */
 function stays(zoneOnly){
@@ -1067,12 +1076,13 @@ function viewDays(){
        not settled ground.</p>
 
     <div class="card">
-      <div class="cardhead"><h3>Where the year is spent</h3><span class="count">red line = 183 days</span></div>
+      <div class="cardhead"><h3>Where the year is spent</h3><span class="count">booked and planned</span></div>
       ${yrs.map(y => {
         const isLeap = (+y % 4 === 0 && +y % 100 !== 0) || +y % 400 === 0;
         const total = isLeap ? 366 : 365;
         const out = Math.min(away[y] || 0, total);
         const home = total - out;
+        const room = total - 183 - out;
         const inYear = merged.map(r => {
           const a = r.from > y + "-01-01" ? r.from : y + "-01-01";
           const b = r.to < y + "-12-31" ? r.to : y + "-12-31";
@@ -1089,11 +1099,16 @@ function viewDays(){
           <span><b>${out}</b> away</span>
           <span>${home >= 183 ? "above" : "below"} the 183 mark</span>
         </div>
-        <div class="sum">${total}${inYear.length ? " \u2212 " + inYear.join(" \u2212 ") : ""} = ${home}</div>`;
+        <div class="sum">${total}${inYear.length ? " \u2212 " + inYear.join(" \u2212 ") : ""} = ${home}</div>
+        <div class="room ${room < 0 ? "gone" : ""}">${
+          room > 0 ? `Room for <b>${room}</b> more day${room === 1 ? "" : "s"} away in ${y} before dropping below 183 in Spain`
+          : room === 0 ? `No room left in ${y} — exactly on the 183 mark`
+          : `<b>${-room}</b> day${room === -1 ? "" : "s"} past the point where you drop below 183 in Spain`}</div>`;
       }).join("")}
     </div>
-    <p class="count">Dark blue is time in Spain, pale blue is time away. The red line sits at 183
-       days. Staying to the right of it is the normal position for a resident here — spending
+    <p class="count">Every dated trip counts, whether it has happened yet or not, so a trip booked
+       for December is already in this year's figures. Dark blue is time in Spain, pale blue is
+       time away. The red line sits at 183 days. Staying to the right of it is the normal position for a resident here — spending
        <em>more</em> than 183 days in Spain is what makes you tax resident, so a bar reaching past
        the line is expected, not a warning.</p>
     <p class="count">A rough count: it assumes every day not on a listed trip was spent in Spain,
@@ -1349,7 +1364,7 @@ function openPlan(date){
   const t = trip(); if (!t) return;
   planDate = date;
   document.getElementById("planTitle").textContent =
-    new Date(date + "T00:00").toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long" });
+    D(date).toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", timeZone:"UTC" });
   document.getElementById("p_text").value = t.plan[date] || "";
   planDlg.showModal();
 }
