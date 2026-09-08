@@ -480,6 +480,7 @@ function blankStore(){
     catTake:  SEED_TAKE.map(([name, cat]) => ({ id: uid(), name, cat })),
     catBring: SEED_BRING.map(name => ({ id: uid(), name })),
     catTodo:  SEED_TODO.map(([text, offset]) => ({ id: uid(), text, offset })),
+    goneTrips: [],
     settings: { residence: "ES", outLimit: 183 },
     updatedAt: now()
   };
@@ -495,6 +496,7 @@ function normalise(s){
     if (t.zone === undefined) t.zone = "schengen";
   });
   s.catTake = s.catTake || []; s.catBring = s.catBring || []; s.catTodo = s.catTodo || [];
+  s.goneTrips = s.goneTrips || [];              /* trips deleted here, so sync can't revive them */
   s.settings = Object.assign({ residence: "ES", outLimit: 183 }, s.settings || {});
   return s;
 }
@@ -980,13 +982,12 @@ function viewMoney(t){
     const bs = t.bookings.filter(b => (b.cur || "EUR") === cur);
     const total = bs.reduce((n, b) => n + Number(b.cost || 0), 0);
     const paid = bs.reduce((n, b) => n + (b.paid === "full" ? Number(b.cost || 0) : Number(b.amt || 0)), 0);
-    const heads = Math.max(1, t.travellers.length);
     html += `<div class="card">
       <div class="cardhead"><h3>${cur}</h3><span class="count">${bs.length} booking${bs.length === 1 ? "" : "s"}</span></div>
       <div class="tot big"><span>Total cost</span><b>${money(total, cur)}</b></div>
       <div class="tot"><span>Paid so far</span><b>${money(paid, cur)}</b></div>
       <div class="tot"><span>Still to pay</span><b>${money(total - paid, cur)}</b></div>
-      ${t.travellers.length > 1 ? `<div class="tot"><span>Each, split ${heads} ways</span><b>${money(total / heads, cur)}</b></div>` : ""}
+
     </div>`;
   });
 
@@ -1482,8 +1483,14 @@ function mergeStores(local, remote){
   normalise(remote);
   const out = { ...local };
 
-  const byId = new Map(local.trips.map(t => [t.id, t]));
+  /* a trip deleted on either device stays deleted on both */
+  const buried = [...(local.goneTrips || []), ...(remote.goneTrips || [])];
+  const buriedIds = new Set(buried.map(g => g.id));
+  out.goneTrips = [...new Map(buried.map(g => [g.id, g])).values()];
+
+  const byId = new Map(local.trips.filter(t => !buriedIds.has(t.id)).map(t => [t.id, t]));
   remote.trips.forEach(rt => {
+    if (buriedIds.has(rt.id)) return;
     const lt = byId.get(rt.id);
     byId.set(rt.id, lt ? mergeTrip(lt, rt) : rt);
   });
@@ -1732,6 +1739,8 @@ document.getElementById("dlgDelete").onclick = () => {
   const gone = editing;
   dlg.close();
   ask("Delete this whole trip?", `"${gone.name}" will go, with its packing lists, jobs, bookings and day plan. This can't be undone.`, () => {
+    S.goneTrips = S.goneTrips || [];
+    if (!S.goneTrips.some(g => g.id === gone.id)) S.goneTrips.push({ id: gone.id, at: now() });
     S.trips = S.trips.filter(x => x.id !== gone.id);
     S.activeTripId = S.trips.length ? S.trips[0].id : null;
     save(); render();
