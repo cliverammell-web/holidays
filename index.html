@@ -4,19 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trips</title>
-<meta name="theme-color" content="#0F6B5F">
+<meta name="theme-color" content="#123C6B">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 :root{
-  --paper:#EEF1F0;
+  --paper:#DDEBF9;        /* light sky background */
   --card:#FFFFFF;
-  --ink:#172029;
-  --muted:#6B7A78;
-  --line:#D6DDDB;
-  --accent:#0F6B5F;
-  --accent-soft:#E3EFEC;
+  --ink:#0E2A47;          /* dark navy text */
+  --muted:#5B7B9C;
+  --line:#BBD5EE;
+  --accent:#123C6B;       /* dark blue — buttons */
+  --accent-hi:#1B5A9E;    /* mid blue — fills, active state */
+  --accent-soft:#D0E4F7;
   --warn:#A62B1F;
   --r:10px;
   --pad:14px;
@@ -40,22 +41,35 @@ header{
 .tripbar{display:flex;align-items:center;gap:8px}
 .tripbar select{
   flex:1;min-width:0;border:0;background:transparent;
-  font-family:Georgia,"Times New Roman",serif;font-size:21px;
+  font-family:Georgia,"Times New Roman",serif;font-size:21px;color:var(--ink);
   padding:2px 0;appearance:none;
 }
 .iconbtn{
   border:1px solid var(--line);background:var(--card);border-radius:8px;
-  width:36px;height:36px;flex:0 0 36px;font-size:19px;line-height:1;cursor:pointer;
+  width:36px;height:36px;flex:0 0 36px;font-size:19px;line-height:1;
+  cursor:pointer;color:var(--accent);
 }
 .iconbtn:active{background:var(--accent-soft)}
 
+.userchip{
+  display:flex;align-items:center;gap:7px;margin-top:9px;
+  background:var(--accent-soft);border:1px solid var(--line);
+  border-radius:999px;padding:4px 5px 4px 11px;font-size:13px;
+  color:var(--accent);width:fit-content;max-width:100%;
+}
+.userchip b{font-weight:600}
+.userchip button{
+  border:0;background:var(--accent);color:#fff;border-radius:999px;
+  padding:3px 10px;font-size:12px;cursor:pointer;
+}
+
 /* journey rule */
-.journey{margin-top:12px}
+.journey{margin-top:11px}
 .jrow{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
 .jrow b{display:block;color:var(--ink);font-size:14px;font-weight:600}
 .jrow div:last-child{text-align:right}
 .jtrack{position:relative;height:2px;background:var(--line);margin:9px 0 7px}
-.jfill{position:absolute;left:0;top:0;height:2px;background:var(--accent)}
+.jfill{position:absolute;left:0;top:0;height:2px;background:var(--accent-hi)}
 .jdot{position:absolute;top:-4px;width:10px;height:10px;border-radius:50%;
   background:var(--accent);border:2px solid var(--card);transform:translateX(-5px)}
 .jnote{font-size:12.5px;color:var(--accent);font-weight:600}
@@ -76,21 +90,21 @@ nav button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--a
 
 main{padding:var(--pad);max-width:640px;margin:0 auto}
 
-/* ---------- shared bits ---------- */
+/* ---------- shared ---------- */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
 .cardhead{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:10px 12px;border-bottom:1px solid var(--line);background:#F8FAF9;
+  padding:10px 12px;border-bottom:1px solid var(--line);background:#EFF6FD;
 }
 .cardhead h3{font-size:14.5px}
 .count{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 
-.addrow{display:flex;gap:6px;margin-bottom:12px}
+.addrow{display:flex;gap:6px;margin-bottom:6px}
+.addrow.second{margin-bottom:12px}
 .addrow input,.addrow select{
   flex:1;min-width:0;padding:11px 10px;border:1px solid var(--line);
   border-radius:8px;background:var(--card);
 }
-.addrow select{flex:0 0 34%}
 .btn{
   border:0;background:var(--accent);color:#fff;border-radius:8px;
   padding:11px 15px;font-weight:600;cursor:pointer;flex:0 0 auto;
@@ -99,10 +113,7 @@ main{padding:var(--pad);max-width:640px;margin:0 auto}
 .btn.ghost{background:var(--card);color:var(--accent);border:1px solid var(--line)}
 
 ul.list{list-style:none;margin:0;padding:0}
-ul.list li{
-  display:flex;align-items:flex-start;gap:10px;padding:10px 12px;
-  border-bottom:1px solid var(--line);
-}
+ul.list li{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
 ul.list li:last-child{border-bottom:0}
 ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .chk{
@@ -114,16 +125,10 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .txt{flex:1;min-width:0;word-break:break-word}
 .sub{display:block;font-size:12.5px;color:var(--muted)}
 .sub.late{color:var(--warn);font-weight:600}
-.del{
-  flex:0 0 auto;border:0;background:none;color:var(--muted);
-  font-size:17px;cursor:pointer;padding:0 2px;line-height:1;
-}
+.del{flex:0 0 auto;border:0;background:none;color:var(--muted);font-size:17px;cursor:pointer;padding:0 2px;line-height:1}
 
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px dashed var(--line)}
-.chip{
-  border:1px solid var(--line);background:var(--card);border-radius:999px;
-  padding:5px 11px;font-size:13px;cursor:pointer;color:var(--ink);
-}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;color:var(--ink)}
 .chip:active{background:var(--accent-soft);border-color:var(--accent)}
 .chiphead{font-size:12.5px;color:var(--muted);padding:10px 12px 0}
 
@@ -139,32 +144,47 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
 .toolbar .btn{flex:1 1 auto}
 
-dialog{
-  border:0;border-radius:14px;padding:0;width:min(94vw,420px);
-  background:var(--card);color:var(--ink);
+/* ---------- sign in ---------- */
+.signin{max-width:420px;margin:34px auto;text-align:center}
+.signin h2{font-family:Georgia,serif;font-size:24px;margin-bottom:6px}
+.signin p{color:var(--muted);font-size:14.5px;margin:0 0 20px}
+.people{display:flex;flex-direction:column;gap:9px}
+.person{
+  border:1px solid var(--line);background:var(--card);border-radius:var(--r);
+  padding:15px;font-size:17px;cursor:pointer;color:var(--ink);text-align:left;
+  display:flex;align-items:center;gap:12px;
 }
-dialog::backdrop{background:rgba(23,32,41,.45)}
+.person:active{border-color:var(--accent);background:var(--accent-soft)}
+.avatar{
+  flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:var(--accent);
+  color:#fff;display:grid;place-items:center;font-size:15px;font-weight:600;
+}
+
+dialog{border:0;border-radius:14px;padding:0;width:min(94vw,420px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(14,42,71,.5)}
 .dlgbody{padding:16px}
 .dlgbody h2{font-size:17px;margin-bottom:12px}
 .field{margin-bottom:11px}
 .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
 .field input{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.hint{font-size:12.5px;color:var(--muted);margin:-6px 0 12px}
 .dlgfoot{display:flex;gap:8px;padding:0 16px 16px}
 .dlgfoot .btn{flex:1}
 </style>
 </head>
 <body>
 
-<header>
+<header id="hdr" hidden>
   <div class="tripbar">
     <select id="tripSel" aria-label="Choose trip"></select>
     <button class="iconbtn" id="editTrip" title="Edit this trip">&#9998;</button>
     <button class="iconbtn" id="newTrip" title="New trip">+</button>
   </div>
+  <div class="userchip" id="userChip"></div>
   <div class="journey" id="journey"></div>
 </header>
 
-<nav id="tabs" role="tablist"></nav>
+<nav id="tabs" role="tablist" hidden></nav>
 <main id="view"></main>
 
 <dialog id="tripDlg">
@@ -175,6 +195,7 @@ dialog::backdrop{background:rgba(23,32,41,.45)}
     <div class="field"><label for="f_dep">Leaving</label><input id="f_dep" type="date"></div>
     <div class="field"><label for="f_ret">Coming back</label><input id="f_ret" type="date"></div>
     <div class="field"><label for="f_trav">Travelling (comma separated)</label><input id="f_trav" placeholder="Clive, Sue"></div>
+    <p class="hint">Everyone named here gets their own packing list and can sign in on this device.</p>
   </form>
   <div class="dlgfoot">
     <button class="btn ghost" id="dlgDelete" type="button">Delete trip</button>
@@ -185,13 +206,18 @@ dialog::backdrop{background:rgba(23,32,41,.45)}
 <script>
 "use strict";
 /* ============================================================
-   Trip Planner — v1
-   Storage: localStorage. Model is sync-ready: every record has
-   an id + updatedAt, and the whole store serialises to one blob,
-   so a Worker/D1 layer can be dropped in later unchanged.
+   Trip Planner — v2
+   · Sky-blue palette
+   · Sign-in by traveller; the To take list is per person
+   · Save as a copy, so old trips stay available for comparison
+   Storage: localStorage. Sync-ready model — every record has an
+   id + updatedAt and the whole store serialises to one blob.
    ============================================================ */
 
 const KEY = "trips.v1";
+const UKEY = "trips.user";          /* who is signed in on THIS device */
+const EVERYONE = "Everyone";
+
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const now = () => new Date().toISOString();
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -211,9 +237,7 @@ const SEED_TAKE = [
   ["Lead and harness","Pet"],["Food and bowls","Pet"],["Vaccination record","Pet"],
   ["Sunglasses","Other"],["Umbrella","Other"],["Cash","Other"]
 ];
-
 const SEED_BRING = ["Olive oil","Turrón","Cheese","Tea bags","Marmite","Books","Presents","Wine"];
-
 const SEED_TODO = [
   ["Check passports are still in date", -90],
   ["Sort travel insurance", -45],
@@ -231,29 +255,28 @@ const SEED_TODO = [
 
 /* ---------- store ---------- */
 let S = load();
+let user = localStorage.getItem(UKEY) || "";
 
 function blankStore(){
   return {
-    v: 1, activeTripId: null, trips: [],
+    v: 2, activeTripId: null, trips: [],
     catTake:  SEED_TAKE.map(([name, cat]) => ({ id: uid(), name, cat })),
     catBring: SEED_BRING.map(name => ({ id: uid(), name })),
     catTodo:  SEED_TODO.map(([text, offset]) => ({ id: uid(), text, offset })),
     updatedAt: now()
   };
 }
-
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
     if (!raw) return blankStore();
     const s = JSON.parse(raw);
-    return (s && s.trips) ? s : blankStore();
-  }catch(e){
-    console.warn("Stored data unreadable, starting fresh", e);
-    return blankStore();
-  }
+    if (!s || !Array.isArray(s.trips)) return blankStore();
+    /* v1 items had no owner — treat them as shared */
+    s.trips.forEach(t => (t.take || []).forEach(i => { if (!i.who) i.who = EVERYONE; }));
+    return s;
+  }catch(e){ console.warn("Stored data unreadable, starting fresh", e); return blankStore(); }
 }
-
 function save(){
   S.updatedAt = now();
   try{ localStorage.setItem(KEY, JSON.stringify(S)); }
@@ -262,6 +285,7 @@ function save(){
 
 const trip = () => S.trips.find(t => t.id === S.activeTripId) || null;
 const touch = o => { o.updatedAt = now(); };
+const travellers = () => (trip()?.travellers || []);
 
 function newTrip(){
   return { id: uid(), name: "", dest: "", depart: "", ret: "", travellers: [],
@@ -275,8 +299,7 @@ function days(from, to){
 }
 function fmt(iso){
   if (!iso) return "—";
-  return new Date(iso + "T00:00").toLocaleDateString("en-GB",
-    { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso + "T00:00").toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
 }
 function dueDate(depart, offset){
   if (!depart) return null;
@@ -284,13 +307,50 @@ function dueDate(depart, offset){
   d.setDate(d.getDate() + offset);
   return d.toISOString().slice(0, 10);
 }
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const initials = n => n.trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
-/* ---------- header ---------- */
+/* ============================================================
+   Sign in
+   ============================================================ */
+function needsSignIn(){
+  const t = trip();
+  if (!t) return false;
+  if (!t.travellers.length) return false;          /* solo trip — no sign-in needed */
+  return !t.travellers.includes(user);
+}
+
+function viewSignIn(){
+  const t = trip();
+  return `<div class="signin">
+    <h2>Who's packing?</h2>
+    <p>Your packing list is your own. Shared items — documents, car kit —
+       show on everybody's list.</p>
+    <div class="people">
+      ${t.travellers.map(n => `<button class="person" data-act="signin" data-name="${esc(n)}">
+        <span class="avatar">${esc(initials(n))}</span>${esc(n)}</button>`).join("")}
+    </div>
+    <p class="hint" style="margin-top:16px">Names come from the Travelling field on the trip.
+       Change them with the pencil at the top.</p>
+  </div>`;
+}
+
+/* ============================================================
+   Header
+   ============================================================ */
 function renderHeader(){
   const sel = document.getElementById("tripSel");
   sel.innerHTML = S.trips.length
     ? S.trips.map(t => `<option value="${t.id}"${t.id === S.activeTripId ? " selected" : ""}>${esc(t.name || "Untitled trip")}</option>`).join("")
     : `<option>No trips yet</option>`;
+
+  const chip = document.getElementById("userChip");
+  if (user && travellers().includes(user)){
+    chip.hidden = false;
+    chip.innerHTML = `<b>${esc(user)}</b><button data-act="signout">Not you?</button>`;
+  } else {
+    chip.hidden = true;
+  }
 
   const t = trip(), j = document.getElementById("journey");
   if (!t){ j.innerHTML = ""; return; }
@@ -299,18 +359,10 @@ function renderHeader(){
   const len = days(t.depart, t.ret);
   let pos = 0, note = "";
 
-  if (out === null){
-    note = "Add your dates to start the countdown";
-  } else if (out > 0){
-    note = out === 1 ? "Leaving tomorrow" : `${out} days to go`;
-    pos = Math.max(4, 100 - Math.min(100, out) );
-  } else if (len !== null && out <= 0 && -out <= len){
-    note = `Day ${-out + 1} of ${len + 1}`;
-    pos = 100;
-  } else {
-    note = "This trip has been and gone";
-    pos = 100;
-  }
+  if (out === null){ note = "Add your dates to start the countdown"; }
+  else if (out > 0){ note = out === 1 ? "Leaving tomorrow" : `${out} days to go`; pos = Math.max(4, 100 - Math.min(100, out)); }
+  else if (len !== null && -out <= len){ note = `Day ${-out + 1} of ${len + 1}`; pos = 100; }
+  else { note = "This trip has been and gone"; pos = 100; }
 
   j.innerHTML = `
     <div class="jrow">
@@ -322,80 +374,93 @@ function renderHeader(){
 }
 
 /* ---------- tabs ---------- */
-const TABS = [
-  ["take",  "To take"],
-  ["bring", "Bring back"],
-  ["todo",  "Before we go"],
-  ["itin",  "Itinerary"],
-  ["book",  "Bookings"],
-  ["money", "Money"]
-];
+const TABS = [["take","To take"],["bring","Bring back"],["todo","Before we go"],
+              ["itin","Itinerary"],["book","Bookings"],["money","Money"]];
 let tab = "take";
-
 function renderTabs(){
   document.getElementById("tabs").innerHTML = TABS.map(([k, label]) =>
     `<button role="tab" data-tab="${k}" aria-selected="${k === tab}">${label}</button>`).join("");
 }
 
-/* ---------- view ---------- */
+/* ============================================================
+   Render
+   ============================================================ */
 function render(){
-  renderHeader(); renderTabs();
-  const v = document.getElementById("view"), t = trip();
+  const hdr = document.getElementById("hdr"), nav = document.getElementById("tabs"), v = document.getElementById("view");
 
-  if (!t){
-    v.innerHTML = `<div class="card"><div class="empty">
-      <b>No trips yet</b>Tap + up there to set one up.</div></div>`;
+  if (!S.trips.length){
+    hdr.hidden = false; nav.hidden = true;
+    renderHeader();
+    v.innerHTML = `<div class="card"><div class="empty"><b>No trips yet</b>Tap + up there to set one up.</div></div>`;
     return;
   }
+  renderHeader();
+  hdr.hidden = false;
+
+  if (needsSignIn()){ nav.hidden = true; v.innerHTML = viewSignIn(); return; }
+
+  nav.hidden = false; renderTabs();
+  const t = trip();
   if (tab === "take")  v.innerHTML = viewTake(t);
   if (tab === "bring") v.innerHTML = viewBring(t);
   if (tab === "todo")  v.innerHTML = viewTodo(t);
-  if (tab === "itin")  v.innerHTML = stub("Itinerary",
-    "Everything with a date and time, in the order it happens.",
+  if (tab === "itin")  v.innerHTML = stub("Itinerary","Everything with a date and time, in the order it happens.",
     ["Flights, check-ins and check-outs pulled from Bookings",
      "Car legs with distance, driving time, tolls and fuel",
-     "Ferry and tunnel crossings",
-     "A day-by-day view you can read on the road"]);
-  if (tab === "book")  v.innerHTML = stub("Bookings",
-    "Enter each booking once; it feeds the itinerary and the totals.",
+     "Ferry and tunnel crossings","A day-by-day view you can read on the road"]);
+  if (tab === "book")  v.innerHTML = stub("Bookings","Enter each booking once; it feeds the itinerary and the totals.",
     ["Flights, hotels, car hire, ferries, activities",
      "Reference numbers and a link to the confirmation email",
      "Deposit paid, balance due, and when it's due",
      "Passport, insurance and licence expiry dates"]);
-  if (tab === "money") v.innerHTML = stub("Money",
-    "Adds up every booking and expense so you know where you stand.",
+  if (tab === "money") v.innerHTML = stub("Money","Adds up every booking and expense so you know where you stand.",
     ["Total cost, paid so far, still outstanding",
-     "Euros and sterling with one rate per trip",
-     "Split by person",
+     "Euros and sterling with one rate per trip","Split by person",
      "Loose spending alongside the big bookings"]);
 }
 
 function stub(title, lead, items){
   return `<div class="card"><div class="stub"><h3>${title}</h3><p>${lead}</p>
-    <ul>${items.map(i => `<li>${i}</li>`).join("")}</ul></div></div>
-    <p class="empty">Coming in the next version. The three lists are the ones you'll use every day, so they came first.</p>`;
+    <ul>${items.map(i => `<li>${i}</li>`).join("")}</ul></div></div>` + tools();
 }
 
-/* ---------- to take ---------- */
+/* ---------- To take (per person) ---------- */
+function ownerOptions(selected){
+  const list = [EVERYONE, ...travellers()];
+  if (!list.length) return `<option>${EVERYONE}</option>`;
+  return list.map(n => `<option${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
+}
+
+function myTake(t){
+  if (!t.travellers.length) return t.take;
+  return t.take.filter(i => i.who === user || i.who === EVERYONE);
+}
+
 function viewTake(t){
-  const packed = t.take.filter(i => i.packed).length;
+  const mine = myTake(t);
+  const packed = mine.filter(i => i.packed).length;
+  const whoLabel = t.travellers.length ? `${esc(user)}'s list` : "Packing list";
+
   let html = `
     <div class="addrow">
       <input id="takeIn" placeholder="Add something to take" autocomplete="off">
-      <select id="takeCat">${TAKE_CATS.map(c => `<option>${c}</option>`).join("")}</select>
       <button class="btn" data-act="addTake">Add</button>
+    </div>
+    <div class="addrow second">
+      <select id="takeCat" aria-label="Category">${TAKE_CATS.map(c => `<option>${c}</option>`).join("")}</select>
+      <select id="takeWho" aria-label="Whose item">${ownerOptions(t.travellers.length ? user : EVERYONE)}</select>
     </div>`;
 
-  if (!t.take.length){
-    html += `<div class="card"><div class="empty"><b>Nothing on the list yet</b>
+  if (!mine.length){
+    html += `<div class="card"><div class="empty"><b>Nothing on your list yet</b>
       Tap a suggestion below, or type your own above.</div></div>`;
   } else {
-    html += `<div class="card"><div class="cardhead"><h3>Packed</h3>
-      <span class="count">${packed} of ${t.take.length}</span></div>
-      <div class="jtrack" style="margin:0"><div class="jfill" style="width:${t.take.length ? packed / t.take.length * 100 : 0}%"></div></div></div>`;
+    html += `<div class="card"><div class="cardhead"><h3>${whoLabel}</h3>
+      <span class="count">${packed} of ${mine.length} packed</span></div>
+      <div class="jtrack" style="margin:0"><div class="jfill" style="width:${packed / mine.length * 100}%"></div></div></div>`;
 
     TAKE_CATS.forEach(cat => {
-      const items = t.take.filter(i => i.cat === cat);
+      const items = mine.filter(i => i.cat === cat);
       if (!items.length) return;
       const p = items.filter(i => i.packed).length;
       html += `<div class="card">
@@ -404,35 +469,34 @@ function viewTake(t){
           <li class="${i.packed ? "done" : ""}">
             <button class="chk" data-on="${i.packed ? 1 : 0}" data-act="tglTake" data-id="${i.id}"
               aria-label="Mark ${esc(i.name)} packed">${i.packed ? "&#10003;" : ""}</button>
-            <span class="txt">${esc(i.name)}${i.who ? `<span class="sub">${esc(i.who)}</span>` : ""}</span>
+            <span class="txt">${esc(i.name)}${i.who === EVERYONE && t.travellers.length ? `<span class="sub">Shared</span>` : ""}</span>
             <button class="del" data-act="delTake" data-id="${i.id}" aria-label="Remove">&times;</button>
           </li>`).join("")}</ul></div>`;
     });
   }
 
-  const onList = new Set(t.take.map(i => i.name.toLowerCase()));
+  const onList = new Set(mine.map(i => i.name.toLowerCase()));
   const sugg = S.catTake.filter(c => !onList.has(c.name.toLowerCase())).slice(0, 30);
   if (sugg.length){
     html += `<div class="card"><div class="chiphead">Things you usually take</div>
-      <div class="chips">${sugg.map(c =>
-        `<button class="chip" data-act="quickTake" data-id="${c.id}">${esc(c.name)}</button>`).join("")}</div></div>`;
+      <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickTake" data-id="${c.id}">${esc(c.name)}</button>`).join("")}</div></div>`;
   }
   return html + tools();
 }
 
-/* ---------- bring back ---------- */
+/* ---------- Bring back (shared) ---------- */
 function viewBring(t){
   const got = t.bring.filter(i => i.got).length;
   let html = `
-    <div class="addrow">
+    <div class="addrow second">
       <input id="bringIn" placeholder="Add something to bring back" autocomplete="off">
       <button class="btn" data-act="addBring">Add</button>
     </div>`;
 
   if (!t.bring.length){
     html += `<div class="card"><div class="empty"><b>Nothing to bring back yet</b>
-      This list is entirely separate from what you take — things to buy, collect or
-      carry home. Tap a suggestion below to start.</div></div>`;
+      Entirely separate from what you take — things to buy, collect or carry home.
+      Tap a suggestion below to start.</div></div>`;
   } else {
     html += `<div class="card">
       <div class="cardhead"><h3>Bring back</h3><span class="count">${got} of ${t.bring.length} got</span></div>
@@ -449,23 +513,24 @@ function viewBring(t){
   const sugg = S.catBring.filter(c => !onList.has(c.name.toLowerCase())).slice(0, 30);
   if (sugg.length){
     html += `<div class="card"><div class="chiphead">Things you usually bring back</div>
-      <div class="chips">${sugg.map(c =>
-        `<button class="chip" data-act="quickBring" data-id="${c.id}">${esc(c.name)}</button>`).join("")}</div></div>`;
+      <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickBring" data-id="${c.id}">${esc(c.name)}</button>`).join("")}</div></div>`;
   }
   return html + tools();
 }
 
-/* ---------- before we go ---------- */
+/* ---------- Before we go (shared) ---------- */
 function viewTodo(t){
   const list = [...t.todo].sort((a, b) => (a.offset ?? 0) - (b.offset ?? 0));
   const done = list.filter(i => i.done).length;
   let html = `
     <div class="addrow">
       <input id="todoIn" placeholder="Add a job" autocomplete="off">
-      <input id="todoOff" type="number" value="7" style="flex:0 0 74px" aria-label="Days before leaving">
       <button class="btn" data-act="addTodo">Add</button>
     </div>
-    <p class="count" style="margin:-6px 0 12px">The number is how many days before leaving it should be done.</p>`;
+    <div class="addrow second">
+      <input id="todoOff" type="number" value="7" aria-label="Days before leaving">
+      <span class="count" style="align-self:center;flex:2">days before leaving</span>
+    </div>`;
 
   if (!list.length){
     html += `<div class="card"><div class="empty"><b>Nothing to do yet</b>
@@ -478,16 +543,14 @@ function viewTodo(t){
         const left = due ? days(todayISO(), due) : null;
         let when = "No date yet";
         if (due){
-          if (left === null) when = fmt(due);
-          else if (left < 0) when = `Overdue — was ${fmt(due)}`;
+          if (left < 0) when = `Overdue — was ${fmt(due)}`;
           else if (left === 0) when = "Today";
           else if (left === 1) when = "Tomorrow";
           else when = `${fmt(due)} · in ${left} days`;
         }
         const late = !i.done && left !== null && left < 0;
         return `<li class="${i.done ? "done" : ""}">
-          <button class="chk" data-on="${i.done ? 1 : 0}" data-act="tglTodo" data-id="${i.id}"
-            aria-label="Mark done">${i.done ? "&#10003;" : ""}</button>
+          <button class="chk" data-on="${i.done ? 1 : 0}" data-act="tglTodo" data-id="${i.id}" aria-label="Mark done">${i.done ? "&#10003;" : ""}</button>
           <span class="txt">${esc(i.text)}<span class="sub ${late ? "late" : ""}">${when}</span></span>
           <button class="del" data-act="delTodo" data-id="${i.id}" aria-label="Remove">&times;</button>
         </li>`;
@@ -498,60 +561,58 @@ function viewTodo(t){
   const sugg = S.catTodo.filter(c => !onList.has(c.text.toLowerCase()));
   if (sugg.length){
     html += `<div class="card"><div class="chiphead">Your usual jobs</div>
-      <div class="chips">${sugg.map(c =>
-        `<button class="chip" data-act="quickTodo" data-id="${c.id}">${esc(c.text)}</button>`).join("")}
-        <button class="chip" data-act="allTodo" style="border-color:var(--accent);color:var(--accent)">Add all</button>
-      </div></div>`;
+      <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickTodo" data-id="${c.id}">${esc(c.text)}</button>`).join("")}
+        <button class="chip" data-act="allTodo" style="border-color:var(--accent);color:var(--accent)">Add all</button></div></div>`;
   }
   return html + tools();
 }
 
 function tools(){
   return `<div class="toolbar">
+    <button class="btn" data-act="saveAs">Save as a copy</button>
     <button class="btn ghost" data-act="export">Export a backup</button>
     <button class="btn ghost" data-act="import">Restore from file</button>
-  </div>`;
+  </div>
+  <p class="count" style="margin-top:8px">Everything saves as you type. Trips stay here until you delete them.</p>`;
 }
-
-const esc = s => String(s ?? "").replace(/[&<>"']/g,
-  c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 
 /* ---------- catalogue learning ---------- */
-function learnTake(name, cat){
-  if (!S.catTake.some(c => c.name.toLowerCase() === name.toLowerCase()))
-    S.catTake.push({ id: uid(), name, cat });
-}
-function learnBring(name){
-  if (!S.catBring.some(c => c.name.toLowerCase() === name.toLowerCase()))
-    S.catBring.push({ id: uid(), name });
-}
-function learnTodo(text, offset){
-  if (!S.catTodo.some(c => c.text.toLowerCase() === text.toLowerCase()))
-    S.catTodo.push({ id: uid(), text, offset });
-}
+const learnTake = (name, cat) => { if (!S.catTake.some(c => c.name.toLowerCase() === name.toLowerCase())) S.catTake.push({ id: uid(), name, cat }); };
+const learnBring = name => { if (!S.catBring.some(c => c.name.toLowerCase() === name.toLowerCase())) S.catBring.push({ id: uid(), name }); };
+const learnTodo = (text, offset) => { if (!S.catTodo.some(c => c.text.toLowerCase() === text.toLowerCase())) S.catTodo.push({ id: uid(), text, offset }); };
 
-/* ---------- actions ---------- */
+/* ============================================================
+   Actions
+   ============================================================ */
 document.addEventListener("click", e => {
   const tabBtn = e.target.closest("nav button");
   if (tabBtn){ tab = tabBtn.dataset.tab; render(); return; }
 
   const b = e.target.closest("[data-act]");
   if (!b) return;
-  const t = trip(), id = b.dataset.id, a = b.dataset.act;
-  if (!t && !["export","import"].includes(a)) return;
+  const a = b.dataset.act, id = b.dataset.id, t = trip();
 
-  const val = sel => { const el = document.getElementById(sel); return el ? el.value.trim() : ""; };
+  if (a === "signin"){ user = b.dataset.name; localStorage.setItem(UKEY, user); render(); return; }
+  if (a === "signout"){ user = ""; localStorage.removeItem(UKEY); render(); return; }
+  if (a === "export") return doExport();
+  if (a === "import") return doImport();
+  if (a === "saveAs") return doSaveAs();
+  if (!t) return;
+
+  const val = s => { const el = document.getElementById(s); return el ? el.value.trim() : ""; };
 
   switch (a){
     case "addTake": {
       const name = val("takeIn"); if (!name) return;
       const cat = document.getElementById("takeCat").value;
-      t.take.push({ id: uid(), name, cat, who: "", packed: false, updatedAt: now() });
+      const who = document.getElementById("takeWho").value;
+      t.take.push({ id: uid(), name, cat, who, packed: false, updatedAt: now() });
       learnTake(name, cat); touch(t); break;
     }
     case "quickTake": {
       const c = S.catTake.find(x => x.id === id); if (!c) return;
-      t.take.push({ id: uid(), name: c.name, cat: c.cat, who: "", packed: false, updatedAt: now() });
+      const who = t.travellers.length ? user : EVERYONE;
+      t.take.push({ id: uid(), name: c.name, cat: c.cat, who, packed: false, updatedAt: now() });
       touch(t); break;
     }
     case "tglTake": { const i = t.take.find(x => x.id === id); i.packed = !i.packed; touch(i); touch(t); break; }
@@ -590,23 +651,45 @@ document.addEventListener("click", e => {
     }
     case "tglTodo": { const i = t.todo.find(x => x.id === id); i.done = !i.done; touch(i); touch(t); break; }
     case "delTodo": { t.todo = t.todo.filter(x => x.id !== id); touch(t); break; }
-
-    case "export": return doExport();
-    case "import": return doImport();
+    default: return;
   }
   save(); render();
-
-  const box = document.getElementById(
-    a.includes("Take") ? "takeIn" : a.includes("Bring") ? "bringIn" : "todoIn");
-  if (box && a.startsWith("add")) box.focus();
+  if (a.startsWith("add")){
+    const box = document.getElementById(a === "addTake" ? "takeIn" : a === "addBring" ? "bringIn" : "todoIn");
+    if (box) box.focus();
+  }
 });
 
 document.addEventListener("keydown", e => {
   if (e.key !== "Enter") return;
-  const map = { takeIn:"addTake", bringIn:"addBring", todoIn:"addTodo" };
-  const act = map[e.target.id];
+  const act = { takeIn:"addTake", bringIn:"addBring", todoIn:"addTodo" }[e.target.id];
   if (act) document.querySelector(`[data-act="${act}"]`).click();
 });
+
+/* ---------- Save as a copy ---------- */
+function doSaveAs(){
+  const t = trip(); if (!t) return;
+  const name = prompt("Save this trip as a new copy called:", `${t.name} (copy)`);
+  if (name === null) return;
+  const clean = name.trim(); if (!clean) return;
+
+  const keepTicks = confirm(
+    "Keep the ticks?\n\nOK — copy exactly as it is, for a record of this trip.\n" +
+    "Cancel — clear every tick, ready to reuse for the next trip.");
+
+  const copy = JSON.parse(JSON.stringify(t));
+  copy.id = uid();
+  copy.name = clean;
+  copy.updatedAt = now();
+  const fresh = () => uid();
+  copy.take.forEach(i => { i.id = fresh(); if (!keepTicks) i.packed = false; });
+  copy.bring.forEach(i => { i.id = fresh(); if (!keepTicks) i.got = false; });
+  copy.todo.forEach(i => { i.id = fresh(); if (!keepTicks) i.done = false; });
+
+  S.trips.push(copy);
+  S.activeTripId = copy.id;
+  save(); render();
+}
 
 /* ---------- trip dialog ---------- */
 const dlg = document.getElementById("tripDlg");
@@ -623,7 +706,6 @@ function openTrip(t){
   document.getElementById("dlgDelete").style.display = t ? "" : "none";
   dlg.showModal();
 }
-
 document.getElementById("newTrip").onclick = () => openTrip(null);
 document.getElementById("editTrip").onclick = () => { if (trip()) openTrip(trip()); };
 
@@ -647,9 +729,7 @@ document.getElementById("dlgDelete").onclick = () => {
   save(); dlg.close(); render();
 };
 
-document.getElementById("tripSel").onchange = e => {
-  S.activeTripId = e.target.value; save(); render();
-};
+document.getElementById("tripSel").onchange = e => { S.activeTripId = e.target.value; save(); render(); };
 
 /* ---------- backup ---------- */
 function doExport(){
@@ -660,7 +740,6 @@ function doExport(){
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-
 function doImport(){
   const inp = document.createElement("input");
   inp.type = "file"; inp.accept = "application/json,.json";
@@ -672,10 +751,10 @@ function doImport(){
         const d = JSON.parse(r.result);
         if (!d || !Array.isArray(d.trips)) throw new Error("not a trips backup");
         if (!confirm("This replaces everything currently on this device. Carry on?")) return;
-        S = d; save(); render();
-      }catch(err){
-        alert("That file isn't a trips backup — nothing has changed.");
-      }
+        S = d;
+        S.trips.forEach(t => (t.take || []).forEach(i => { if (!i.who) i.who = EVERYONE; }));
+        save(); render();
+      }catch(err){ alert("That file isn't a trips backup — nothing has changed."); }
     };
     r.readAsText(f);
   };
