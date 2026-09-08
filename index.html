@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trips</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="theme-color" content="#123C6B">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -232,6 +235,11 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
 .toolbar .btn{flex:1 1 auto}
+.syncbar{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap;
+  margin-top:10px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);font-size:12.5px;color:var(--muted)}
+.syncbar .bad{color:var(--warn)}
+.syncbar .chip{margin-left:6px}
 
 /* ---------- sign in ---------- */
 .signin{max-width:420px;margin:34px auto;text-align:center}
@@ -296,6 +304,27 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
   <div class="dlgfoot">
     <button class="btn ghost" id="dlgDelete" type="button">Delete trip</button>
     <button class="btn" id="dlgSave" type="button">Save trip</button>
+  </div>
+</dialog>
+
+<dialog id="syncDlg">
+  <div class="dlgbody">
+    <h2>Sync between devices</h2>
+    <p class="hint" id="syncState" style="margin:-6px 0 12px"></p>
+    <div class="field"><label for="s_url">Worker address</label>
+      <input id="s_url" type="url" placeholder="https://trips-sync.yourname.workers.dev"></div>
+    <div class="field"><label for="s_code">Passphrase</label>
+      <input id="s_code" placeholder="at least 8 characters"></div>
+    <p class="hint">Your trips are encrypted on this device before they are sent, so the server
+      only ever holds a scrambled copy. Use the same address and passphrase on each device and
+      they share one set of trips.</p>
+    <p class="hint">Nothing can recover the data if the passphrase is forgotten — not the server,
+      not me. Write it down somewhere safe.</p>
+  </div>
+  <div class="dlgfoot">
+    <button class="btn ghost" id="syncOff" type="button">Stop syncing</button>
+    <button class="btn ghost" id="syncCancel" type="button">Cancel</button>
+    <button class="btn" id="syncSave" type="button">Save</button>
   </div>
 </dialog>
 
@@ -460,7 +489,7 @@ function normalise(s){
   s.trips = s.trips || [];
   s.trips.forEach(t => {
     t.take = t.take || []; t.bring = t.bring || []; t.todo = t.todo || [];
-    t.bookings = t.bookings || []; t.plan = t.plan || {};
+    t.bookings = t.bookings || []; t.plan = t.plan || {}; t.gone = t.gone || [];
     t.travellers = t.travellers || [];
     t.take.forEach(i => { if (!i.who) i.who = EVERYONE; });
     if (t.zone === undefined) t.zone = "schengen";
@@ -483,6 +512,7 @@ function load(){
 function save(){
   S.updatedAt = now();
   lsSet(KEY, JSON.stringify(S));
+  if (typeof syncSoon === "function") syncSoon();
 }
 
 const trip = () => S.trips.find(t => t.id === S.activeTripId) || null;
@@ -494,11 +524,13 @@ function refuse(){
   alert(`Only ${owner()} can change this. Your own packing list is yours to edit.`);
 }
 const touch = o => { o.updatedAt = now(); };
+/* Record what was deleted, so a merge from another device doesn't bring it back */
+function bury(t, id){ t.gone = t.gone || []; if (!t.gone.some(g => g.id === id)) t.gone.push({ id, at: now() }); }
 const travellers = () => (trip()?.travellers || []);
 
 function newTrip(){
   return { id: uid(), name: "", dest: "", depart: "", ret: "", travellers: [], zone: "schengen",
-           take: [], bring: [], todo: [], bookings: [], plan: {}, updatedAt: now() };
+           take: [], bring: [], todo: [], bookings: [], plan: {}, gone: [], updatedAt: now() };
 }
 
 /* ---------- dates ---------- */
@@ -649,11 +681,14 @@ function render(){
         Start a new trip with + at the top, or bring across trips you've
         already set up on another device.
       </div>
-      <div class="chips" style="border-top:1px solid var(--line);padding:12px">
-        <button class="btn" data-act="import" style="flex:1">Restore from a backup file</button>
+      <div class="chips" style="border-top:1px solid var(--line);padding:12px;gap:8px">
+        <button class="btn" data-act="syncSet" style="flex:1 1 100%">Connect to sync</button>
+        <button class="btn ghost" data-act="import" style="flex:1 1 100%">Restore from a backup file</button>
       </div></div>
-      <p class="count" style="text-align:center">Export a backup on the other device first —
-         it saves a single .json file you can send over or copy across.</p>`;
+      <p class="count" style="text-align:center">Connecting with the same Worker address and sync
+         passphrase as your other device brings everything across. A backup file does the same job
+         one time only.</p>
+      <div class="syncbar"><span>${esc(syncLabel())}</span></div>`;
     return;
   }
   renderHeader();
@@ -1159,6 +1194,11 @@ function tools(){
     <button class="btn ghost" data-act="export">Export a backup</button>
     ${isOwner() ? `<button class="btn ghost" data-act="import">Load a backup</button>` : ""}
   </div>
+  <div class="syncbar">
+    <span class="${SYNC.note && SYNC.note.startsWith("Sync failed") ? "bad" : ""}">${esc(syncLabel())}</span>
+    <span>${syncOn() ? `<button class="chip" data-act="syncNow">Sync now</button>` : ""}
+      ${isOwner() ? `<button class="chip" data-act="syncSet">${syncOn() ? "Settings" : "Set up sync"}</button>` : ""}</span>
+  </div>
   <p class="count" style="margin-top:8px">Everything saves as you type. Every trip stays in the list at the top until you delete it.</p>`;
 }
 
@@ -1184,6 +1224,8 @@ document.addEventListener("click", e => {
   if (a === "signout"){ user = ""; lsDel(UKEY); render(); return; }
   if (a === "export") return doExport();
   if (a === "import") return doImport();
+  if (a === "syncNow") return syncNow();
+  if (a === "syncSet"){ if (!isOwner()) return refuse(); return openSync(); }
   if (a === "tglShowDone"){ showDone = !showDone; render(); return; }
   if (!t) return;
 
@@ -1219,7 +1261,7 @@ document.addEventListener("click", e => {
     case "delTake": {
       const it = t.take.find(x => x.id === id); if (!it) return;
       return ask("Remove this?", `"${it.name || it.text}" will be taken off the packing list.`, () => {
-        t.take = t.take.filter(x => x.id !== id); touch(t); save(); render();
+        t.take = t.take.filter(x => x.id !== id); bury(t, id); touch(t); save(); render();
       });
     }
 
@@ -1237,7 +1279,7 @@ document.addEventListener("click", e => {
     case "delBring": {
       const it = t.bring.find(x => x.id === id); if (!it) return;
       return ask("Remove this?", `"${it.name || it.text}" will be taken off the bring-back list.`, () => {
-        t.bring = t.bring.filter(x => x.id !== id); touch(t); save(); render();
+        t.bring = t.bring.filter(x => x.id !== id); bury(t, id); touch(t); save(); render();
       });
     }
 
@@ -1272,7 +1314,7 @@ document.addEventListener("click", e => {
     case "delTodo": {
       const it = t.todo.find(x => x.id === id); if (!it) return;
       return ask("Remove this?", `"${it.name || it.text}" will be taken off the jobs.`, () => {
-        t.todo = t.todo.filter(x => x.id !== id); touch(t); save(); render();
+        t.todo = t.todo.filter(x => x.id !== id); bury(t, id); touch(t); save(); render();
       });
     }
     default: return;
@@ -1335,6 +1377,208 @@ document.getElementById("dateSave").onclick = () => {
   if (c && i.offset !== undefined) c.offset = i.offset;
 
   save(); dateDlg.close(); render();
+};
+
+/* ============================================================
+   Sync — Cloudflare Worker + D1
+   Merging is per item, using each record's own updatedAt, so two people
+   editing different parts of the same trip both keep their work.
+   ============================================================ */
+const SYNC = {
+  url:  lsGet("trips.syncUrl") || "",
+  code: lsGet("trips.syncCode") || "",
+  rev:  Number(lsGet("trips.syncRev") || 0),
+  at:   lsGet("trips.syncAt") || "",
+  busy: false,
+  note: "",
+  pushed: ""      /* S.updatedAt as at the last successful push */
+};
+const syncOn = () => !!(SYNC.url && SYNC.code);
+
+/* ---- encryption ----------------------------------------------------------
+   One passphrase does two jobs. PBKDF2 stretches it into 512 bits: the first
+   256 become the AES-GCM key, the last 256 become the room name the Worker
+   files the data under. The Worker therefore never sees the passphrase, and
+   what it stores is ciphertext it cannot read. Losing the passphrase means
+   losing the data — there is no reset. */
+const KDF_SALT = "crapps.uk/trips/v1";
+const KDF_ROUNDS = 250000;
+let keyCache = { pass: null, key: null, room: null };
+
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+
+async function keysFor(pass){
+  if (keyCache.pass === pass) return keyCache;
+  const enc = new TextEncoder();
+  const base = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveBits"]);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: enc.encode(KDF_SALT), iterations: KDF_ROUNDS, hash: "SHA-256" }, base, 512));
+  const key = await crypto.subtle.importKey("raw", bits.slice(0, 32), { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+  const room = [...bits.slice(32)].map(x => x.toString(16).padStart(2, "0")).join("");
+  keyCache = { pass, key, room };
+  return keyCache;
+}
+
+async function seal(obj, key){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv },
+    key, new TextEncoder().encode(JSON.stringify(obj)));
+  return { v: 1, iv: b64(iv), ct: b64(ct) };
+}
+
+async function unseal(box, key){
+  if (!box) return null;
+  if (!box.ct) return box;                    /* an older, unencrypted document */
+  try{
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(box.iv) }, key, unb64(box.ct));
+    return JSON.parse(new TextDecoder().decode(plain));
+  }catch(e){
+    throw new Error("wrong passphrase for this data");
+  }
+}
+
+/* ---- merging ---- */
+function mergeById(a = [], b = [], gone = new Set()){
+  const out = new Map();
+  [...a, ...b].forEach(i => {
+    if (gone.has(i.id)) return;
+    const seen = out.get(i.id);
+    if (!seen || (i.updatedAt || "") > (seen.updatedAt || "")) out.set(i.id, i);
+  });
+  return [...out.values()];
+}
+
+function mergeTrip(a, b){
+  const newer = (b.updatedAt || "") > (a.updatedAt || "") ? b : a;
+  const gone = [...(a.gone || []), ...(b.gone || [])];
+  const goneIds = new Set(gone.map(g => g.id));
+  return {
+    ...newer,
+    gone,
+    take:     mergeById(a.take, b.take, goneIds),
+    bring:    mergeById(a.bring, b.bring, goneIds),
+    todo:     mergeById(a.todo, b.todo, goneIds),
+    bookings: mergeById(a.bookings, b.bookings, goneIds),
+    plan:     { ...(newer === a ? b.plan : a.plan), ...newer.plan }
+  };
+}
+
+function mergeStores(local, remote){
+  if (!remote) return local;
+  normalise(remote);
+  const out = { ...local };
+
+  const byId = new Map(local.trips.map(t => [t.id, t]));
+  remote.trips.forEach(rt => {
+    const lt = byId.get(rt.id);
+    byId.set(rt.id, lt ? mergeTrip(lt, rt) : rt);
+  });
+  out.trips = [...byId.values()];
+
+  const union = (mine, theirs, key) => {
+    const seen = new Set(mine.map(x => String(x[key]).toLowerCase()));
+    return [...mine, ...(theirs || []).filter(c => !seen.has(String(c[key]).toLowerCase()))];
+  };
+  out.catTake  = union(local.catTake,  remote.catTake,  "name");
+  out.catBring = union(local.catBring, remote.catBring, "name");
+  out.catTodo  = union(local.catTodo,  remote.catTodo,  "text");
+
+  out.settings = (remote.updatedAt || "") > (local.updatedAt || "") ? remote.settings : local.settings;
+  if (!out.trips.some(t => t.id === out.activeTripId)) out.activeTripId = out.trips[0] ? out.trips[0].id : null;
+  return normalise(out);
+}
+
+/* ---- transport ---- */
+async function api(path, body){
+  const r = await fetch(SYNC.url.replace(/\/+$/, "") + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok && r.status !== 409) throw new Error(data.error || `server said ${r.status}`);
+  return { status: r.status, data };
+}
+
+async function syncNow(quiet){
+  if (!syncOn() || SYNC.busy) return;
+  if (!navigator.onLine){ SYNC.note = "Offline \u2014 will sync when you're back"; if (!quiet) render(); return; }
+
+  SYNC.busy = true; SYNC.note = "Syncing\u2026"; if (!quiet) render();
+  try{
+    const { key, room } = await keysFor(SYNC.code);
+
+    const pull = await api("/pull", { key: room });
+    if (pull.data.doc) S = mergeStores(S, await unseal(pull.data.doc, key));
+    save();
+
+    let push = await api("/push", { key: room, rev: pull.data.rev, doc: await seal(S, key) });
+    if (push.status === 409){                       /* someone else pushed first */
+      S = mergeStores(S, await unseal(push.data.doc, key));
+      save();
+      push = await api("/push", { key: room, rev: push.data.rev, doc: await seal(S, key) });
+    }
+    if (push.status === 409) throw new Error("kept clashing \u2014 try again in a moment");
+
+    SYNC.rev = push.data.rev;
+    SYNC.pushed = S.updatedAt;                  /* so the save above doesn't trigger another push */
+    SYNC.at = now();
+    lsSet("trips.syncRev", String(SYNC.rev));
+    lsSet("trips.syncAt", SYNC.at);
+    SYNC.note = "";
+  }catch(err){
+    SYNC.note = "Sync failed \u2014 " + err.message;
+  }
+  SYNC.busy = false;
+  render();
+}
+
+/* Push shortly after any change, so both phones stay close to level */
+let syncTimer = null;
+function syncSoon(){
+  if (!syncOn() || SYNC.busy) return;
+  if (S.updatedAt === SYNC.pushed) return;      /* nothing new since the last push */
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncNow(true), 4000);
+}
+
+window.addEventListener("online", () => syncNow(true));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) syncNow(true); });
+
+function syncLabel(){
+  if (SYNC.note) return SYNC.note;
+  if (!syncOn()) return "Not syncing \u2014 this device only";
+  if (!SYNC.at) return "Connected, not synced yet";
+  const mins = Math.round((Date.now() - new Date(SYNC.at)) / 60000);
+  return mins < 1 ? "Synced just now" : mins < 60 ? `Synced ${mins} min ago` : `Synced ${fmt(SYNC.at.slice(0, 10))}`;
+}
+
+/* ---- settings dialog ---- */
+function openSync(){
+  document.getElementById("s_url").value = SYNC.url;
+  document.getElementById("s_code").value = SYNC.code;
+  document.getElementById("syncState").textContent = syncLabel();
+  document.getElementById("syncDlg").showModal();
+}
+document.getElementById("syncCancel").onclick = () => document.getElementById("syncDlg").close();
+document.getElementById("syncSave").onclick = () => {
+  const url = document.getElementById("s_url").value.trim();
+  const code = document.getElementById("s_code").value.trim();
+  if (code && code.length < 8) return alert("Use a passphrase of at least 8 characters \u2014 it is the encryption key for your trips.");
+  keyCache = { pass: null, key: null, room: null };
+  SYNC.url = url; SYNC.code = code; SYNC.rev = 0; SYNC.note = "";
+  lsSet("trips.syncUrl", url); lsSet("trips.syncCode", code); lsSet("trips.syncRev", "0");
+  document.getElementById("syncDlg").close();
+  render();
+  if (syncOn()) syncNow();
+};
+document.getElementById("syncOff").onclick = () => {
+  keyCache = { pass: null, key: null, room: null };
+  SYNC.url = ""; SYNC.code = ""; SYNC.rev = 0; SYNC.at = ""; SYNC.note = "";
+  ["trips.syncUrl","trips.syncCode","trips.syncRev","trips.syncAt"].forEach(lsDel);
+  document.getElementById("syncDlg").close();
+  render();
 };
 
 /* ---------- "are you sure?" ---------- */
@@ -1406,7 +1650,7 @@ document.getElementById("bookDelete").onclick = () => {
   bookDlg.close();
   ask("Remove this booking?", `${b && b.name ? b.name : "This booking"} will be deleted, along with its cost and payment details.`, () => {
     t.bookings = t.bookings.filter(x => x.id !== bookId);
-    touch(t); save(); render();
+    bury(t, bookId); touch(t); save(); render();
   });
 };
 
@@ -1549,6 +1793,14 @@ function mergeIn(d){
 /* ---------- go ---------- */
 if (S.trips.length && !S.activeTripId) S.activeTripId = S.trips[0].id;
 render();
+
+if (syncOn()) syncNow(true);
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(err => console.warn("No service worker:", err));
+  });
+}
 </script>
 </body>
 </html>
