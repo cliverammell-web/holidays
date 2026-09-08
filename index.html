@@ -139,6 +139,18 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
   background:none;font-size:12.5px;color:var(--muted);cursor:pointer;text-align:left;
 }
 .datebtn.late{color:var(--warn);font-weight:600;border-bottom-color:var(--warn)}
+.donehead{
+  display:flex;align-items:center;justify-content:space-between;width:100%;
+  padding:11px 12px;border:0;background:#EFF6FD;cursor:pointer;
+  font-size:14.5px;font-weight:600;color:var(--ink);text-align:left;
+}
+.donehead + ul.list{border-top:1px solid var(--line)}
+.caret{
+  width:9px;height:9px;border-right:2px solid var(--accent);border-bottom:2px solid var(--accent);
+  transform:translateY(-2px) rotate(45deg);transition:transform .15s;
+}
+.caret.up{transform:translateY(2px) rotate(-135deg)}
+@media (prefers-reduced-motion:reduce){.caret{transition:none}}
 .del{flex:0 0 auto;border:0;background:none;color:var(--muted);font-size:17px;cursor:pointer;padding:0 2px;line-height:1}
 
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px dashed var(--line)}
@@ -577,10 +589,24 @@ function whenLabel(due){
   return { text: `${fmt(due)} · in ${left} days`, late: false };
 }
 
+let showDone = false;
+
+function todoRow(t, i){
+  const w = whenLabel(todoDue(t, i));
+  const late = !i.done && w.late;
+  return `<li class="${i.done ? "done" : ""}">
+    <button class="chk" data-on="${i.done ? 1 : 0}" data-act="tglTodo" data-id="${i.id}" aria-label="Mark done">${i.done ? "&#10003;" : ""}</button>
+    <span class="txt">${esc(i.text)}
+      <button class="datebtn ${late ? "late" : ""}" data-act="pickDate" data-id="${i.id}"
+        aria-label="Change the date for ${esc(i.text)}">${w.text}</button></span>
+    <button class="del" data-act="delTodo" data-id="${i.id}" aria-label="Remove">&times;</button>
+  </li>`;
+}
+
 function viewTodo(t){
-  const list = [...t.todo].sort((a, b) =>
-    (todoDue(t, a) || "9999-12-31").localeCompare(todoDue(t, b) || "9999-12-31"));
-  const done = list.filter(i => i.done).length;
+  const byDate = (a, b) => (todoDue(t, a) || "9999-12-31").localeCompare(todoDue(t, b) || "9999-12-31");
+  const open = t.todo.filter(i => !i.done).sort(byDate);
+  const done = t.todo.filter(i => i.done).sort(byDate);
 
   let html = `
     <div class="addrow second">
@@ -588,23 +614,25 @@ function viewTodo(t){
       <button class="btn" data-act="addTodo">Add</button>
     </div>`;
 
-  if (!list.length){
+  if (!t.todo.length){
     html += `<div class="card"><div class="empty"><b>Nothing to do yet</b>
       Add a job above, or load your usual list below. You choose the date for each one.</div></div>`;
+  } else if (!open.length){
+    html += `<div class="card"><div class="empty"><b>All done</b>
+      Every job on the list is ticked off.</div></div>`;
   } else {
     html += `<div class="card">
-      <div class="cardhead"><h3>Before we go</h3><span class="count">${done} of ${list.length}</span></div>
-      <ul class="list">${list.map(i => {
-        const w = whenLabel(todoDue(t, i));
-        const late = !i.done && w.late;
-        return `<li class="${i.done ? "done" : ""}">
-          <button class="chk" data-on="${i.done ? 1 : 0}" data-act="tglTodo" data-id="${i.id}" aria-label="Mark done">${i.done ? "&#10003;" : ""}</button>
-          <span class="txt">${esc(i.text)}
-            <button class="datebtn ${late ? "late" : ""}" data-act="pickDate" data-id="${i.id}"
-              aria-label="Change the date for ${esc(i.text)}">${w.text}</button></span>
-          <button class="del" data-act="delTodo" data-id="${i.id}" aria-label="Remove">&times;</button>
-        </li>`;
-      }).join("")}</ul></div>`;
+      <div class="cardhead"><h3>Still to do</h3><span class="count">${open.length} left of ${t.todo.length}</span></div>
+      <ul class="list">${open.map(i => todoRow(t, i)).join("")}</ul></div>`;
+  }
+
+  if (done.length){
+    html += `<div class="card">
+      <button class="donehead" data-act="tglShowDone" aria-expanded="${showDone}">
+        <span>Done<span class="count" style="margin-left:7px">${done.length}</span></span>
+        <span class="caret ${showDone ? "up" : ""}"></span>
+      </button>
+      ${showDone ? `<ul class="list">${done.map(i => todoRow(t, i)).join("")}</ul>` : ""}</div>`;
   }
 
   const onList = new Set(t.todo.map(i => i.text.toLowerCase()));
@@ -645,6 +673,7 @@ document.addEventListener("click", e => {
   if (a === "signout"){ user = ""; localStorage.removeItem(UKEY); render(); return; }
   if (a === "export") return doExport();
   if (a === "import") return doImport();
+  if (a === "tglShowDone"){ showDone = !showDone; render(); return; }
   if (!t) return;
 
   const val = s => { const el = document.getElementById(s); return el ? el.value.trim() : ""; };
