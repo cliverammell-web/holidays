@@ -450,7 +450,17 @@ function render(){
   if (!S.trips.length){
     hdr.hidden = false; nav.hidden = true;
     renderHeader();
-    v.innerHTML = `<div class="card"><div class="empty"><b>No trips yet</b>Tap + up there to set one up.</div></div>`;
+    v.innerHTML = `
+      <div class="card"><div class="empty">
+        <b>Nothing on this device yet</b>
+        Start a new trip with + at the top, or bring across trips you've
+        already set up on another device.
+      </div>
+      <div class="chips" style="border-top:1px solid var(--line);padding:12px">
+        <button class="btn" data-act="import" style="flex:1">Restore from a backup file</button>
+      </div></div>
+      <p class="count" style="text-align:center">Export a backup on the other device first —
+         it saves a single .json file you can send over or copy across.</p>`;
     return;
   }
   renderHeader();
@@ -648,7 +658,7 @@ function viewTodo(t){
 function tools(){
   return `<div class="toolbar">
     <button class="btn ghost" data-act="export">Export a backup</button>
-    <button class="btn ghost" data-act="import">Restore from file</button>
+    <button class="btn ghost" data-act="import">Load a backup</button>
   </div>
   <p class="count" style="margin-top:8px">Everything saves as you type. Every trip stays in the list at the top until you delete it.</p>`;
 }
@@ -852,18 +862,51 @@ function doImport(){
     const f = inp.files[0]; if (!f) return;
     const r = new FileReader();
     r.onload = () => {
+      let d;
       try{
-        const d = JSON.parse(r.result);
+        d = JSON.parse(r.result);
         if (!d || !Array.isArray(d.trips)) throw new Error("not a trips backup");
-        if (!confirm("This replaces everything currently on this device. Carry on?")) return;
-        S = d;
-        S.trips.forEach(t => (t.take || []).forEach(i => { if (!i.who) i.who = EVERYONE; }));
-        save(); render();
-      }catch(err){ alert("That file isn't a trips backup — nothing has changed."); }
+      }catch(err){
+        alert("That file isn't a trips backup — nothing has changed.");
+        return;
+      }
+      d.trips.forEach(t => (t.take || []).forEach(i => { if (!i.who) i.who = EVERYONE; }));
+
+      if (!S.trips.length){
+        S = d;                                   /* empty device — just take it */
+      } else {
+        const merge = confirm(
+          `That file holds ${d.trips.length} trip${d.trips.length === 1 ? "" : "s"}.\n\n` +
+          "OK — add them to what's already here, keeping the newer version of anything that matches.\n" +
+          "Cancel — replace everything on this device with the file.");
+        if (merge) mergeIn(d); else S = d;
+      }
+      if (S.trips.length && !S.trips.some(t => t.id === S.activeTripId))
+        S.activeTripId = S.trips[0].id;
+      save(); render();
+      alert(`Loaded. ${S.trips.length} trip${S.trips.length === 1 ? "" : "s"} on this device.`);
     };
     r.readAsText(f);
   };
   inp.click();
+}
+
+/* Merge by id, newest wins — the same rule the sync layer will use */
+function mergeIn(d){
+  d.trips.forEach(incoming => {
+    const here = S.trips.find(t => t.id === incoming.id);
+    if (!here){ S.trips.push(incoming); return; }
+    if ((incoming.updatedAt || "") > (here.updatedAt || "")){
+      S.trips[S.trips.indexOf(here)] = incoming;
+    }
+  });
+  const addNew = (mine, theirs, key) =>
+    (theirs || []).forEach(c => {
+      if (!mine.some(x => String(x[key]).toLowerCase() === String(c[key]).toLowerCase())) mine.push(c);
+    });
+  addNew(S.catTake, d.catTake, "name");
+  addNew(S.catBring, d.catBring, "name");
+  addNew(S.catTodo, d.catTodo, "text");
 }
 
 /* ---------- go ---------- */
