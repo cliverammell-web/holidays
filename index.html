@@ -140,6 +140,36 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 }
 .chk[data-on="1"]{background:var(--accent);border-color:var(--accent);color:#fff}
 .chk:disabled{opacity:.45;cursor:default}
+.row2{display:flex;gap:9px}
+.row2 .field{flex:1;min-width:0}
+.bk{padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.bk:last-child{border-bottom:0}
+.bk .top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.bk .nm{font-weight:600;font-size:15px}
+.bk .ty{font-size:11px;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.bk .meta{font-size:12.5px;color:var(--muted);margin-top:3px}
+.pill{display:inline-block;font-size:11px;border-radius:999px;padding:2px 8px;margin-top:5px}
+.pill.full{background:#DFF0E4;color:#1E5B33}
+.pill.part{background:#FDF0D5;color:#7A5A12}
+.pill.none{background:#FBE0DD;color:#8A2B20}
+.lnk{display:inline-block;font-size:12.5px;color:var(--accent);margin:6px 12px 0 0;text-decoration:none;border-bottom:1px solid var(--line)}
+.day{padding:11px 12px;border-bottom:1px solid var(--line)}
+.day:last-child{border-bottom:0}
+.day h4{margin:0 0 3px;font-size:14px;font-weight:600}
+.day .bits{font-size:12.5px;color:var(--muted)}
+.day .plan{
+  display:block;width:100%;text-align:left;margin-top:6px;padding:7px 9px;
+  border:1px dashed var(--line);border-radius:8px;background:#F7FBFE;
+  font-size:13px;color:var(--ink);cursor:pointer;white-space:pre-wrap;
+}
+.day .plan.blank{color:var(--muted)}
+.tot{display:flex;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line);font-size:14.5px}
+.tot:last-child{border-bottom:0}
+.tot b{font-variant-numeric:tabular-nums}
+.tot.big{font-size:17px;font-weight:600;background:#F3F9FE}
+.gauge{height:9px;border-radius:999px;background:var(--line);overflow:hidden;margin:9px 12px}
+.gauge i{display:block;height:100%;background:var(--accent-hi)}
+.gauge i.over{background:var(--warn)}
 .locked{
   background:#EFF6FD;border:1px solid var(--line);border-radius:8px;
   padding:9px 11px;margin:0 0 12px;font-size:12.5px;color:var(--muted);
@@ -235,11 +265,67 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
     <div class="field"><label for="f_dep">Leaving</label><input id="f_dep" type="date"></div>
     <div class="field"><label for="f_ret">Coming back</label><input id="f_ret" type="date"></div>
     <div class="field"><label for="f_trav">Travelling (comma separated)</label><input id="f_trav" placeholder="Clive, Chris"></div>
+    <div class="field"><label for="f_zone">Where is this trip?</label>
+      <select id="f_zone" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card)">
+        <option value="schengen">Inside the Schengen area</option>
+        <option value="outside">Outside Schengen (UK, Ireland, elsewhere)</option>
+      </select></div>
     <p class="hint">Everyone named here gets their own packing list and can sign in on this device.</p>
   </form>
   <div class="dlgfoot">
     <button class="btn ghost" id="dlgDelete" type="button">Delete trip</button>
     <button class="btn" id="dlgSave" type="button">Save trip</button>
+  </div>
+</dialog>
+
+<dialog id="bookDlg">
+  <div class="dlgbody">
+    <h2 id="bookTitle">Booking</h2>
+    <div class="field"><label for="b_type">What is it?</label>
+      <select id="b_type"></select></div>
+    <div class="field"><label for="b_name">Description</label><input id="b_name" placeholder="Sea view apartment"></div>
+    <div class="field"><label for="b_prov">Booked with</label><input id="b_prov" placeholder="Booking.com, Airbnb, easyJet"></div>
+    <div class="field"><label for="b_url">Link to the booking</label><input id="b_url" type="url" placeholder="https://"></div>
+    <div class="field"><label for="b_email">Link to the confirmation email</label><input id="b_email" type="url" placeholder="https://outlook.office.com/..."></div>
+    <div class="field"><label for="b_ref">Reference</label><input id="b_ref" placeholder="ABC123"></div>
+    <div class="row2">
+      <div class="field"><label for="b_start">From</label><input id="b_start" type="date"></div>
+      <div class="field"><label for="b_time">Time</label><input id="b_time" type="time"></div>
+    </div>
+    <div class="field"><label for="b_end">Until (leave blank for a single day)</label><input id="b_end" type="date"></div>
+    <div class="row2">
+      <div class="field"><label for="b_cost">Total cost</label><input id="b_cost" type="number" step="0.01" inputmode="decimal"></div>
+      <div class="field"><label for="b_cur">Currency</label><select id="b_cur"><option>EUR</option><option>GBP</option><option>USD</option></select></div>
+    </div>
+    <div class="field"><label for="b_paid">Payment</label>
+      <select id="b_paid">
+        <option value="none">Nothing paid yet</option>
+        <option value="part">Deposit paid</option>
+        <option value="full">Paid in full</option>
+      </select></div>
+    <div class="row2">
+      <div class="field"><label for="b_amt">Paid so far</label><input id="b_amt" type="number" step="0.01" inputmode="decimal"></div>
+      <div class="field"><label for="b_due">Balance due</label><input id="b_due" type="date"></div>
+    </div>
+    <div class="field"><label for="b_note">Notes</label><input id="b_note" placeholder="Key from the lockbox"></div>
+  </div>
+  <div class="dlgfoot">
+    <button class="btn ghost" id="bookDelete" type="button">Delete</button>
+    <button class="btn ghost" id="bookCancel" type="button">Cancel</button>
+    <button class="btn" id="bookSave" type="button">Save</button>
+  </div>
+</dialog>
+
+<dialog id="planDlg">
+  <div class="dlgbody">
+    <h2 id="planTitle">Day plan</h2>
+    <div class="field"><label for="p_text">What's the plan?</label>
+      <textarea id="p_text" rows="3" placeholder="Drive to Bilbao, lunch at the market, ferry at 5"
+        style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);resize:vertical"></textarea></div>
+  </div>
+  <div class="dlgfoot">
+    <button class="btn ghost" id="planCancel" type="button">Cancel</button>
+    <button class="btn" id="planSave" type="button">Save</button>
   </div>
 </dialog>
 
@@ -333,9 +419,25 @@ function blankStore(){
     catTake:  SEED_TAKE.map(([name, cat]) => ({ id: uid(), name, cat })),
     catBring: SEED_BRING.map(name => ({ id: uid(), name })),
     catTodo:  SEED_TODO.map(([text, offset]) => ({ id: uid(), text, offset })),
+    settings: { residence: "ES", outLimit: 183 },
     updatedAt: now()
   };
 }
+/* Fill in anything a file or an older version might be missing */
+function normalise(s){
+  s.trips = s.trips || [];
+  s.trips.forEach(t => {
+    t.take = t.take || []; t.bring = t.bring || []; t.todo = t.todo || [];
+    t.bookings = t.bookings || []; t.plan = t.plan || {};
+    t.travellers = t.travellers || [];
+    t.take.forEach(i => { if (!i.who) i.who = EVERYONE; });
+    if (t.zone === undefined) t.zone = "schengen";
+  });
+  s.catTake = s.catTake || []; s.catBring = s.catBring || []; s.catTodo = s.catTodo || [];
+  s.settings = Object.assign({ residence: "ES", outLimit: 183 }, s.settings || {});
+  return s;
+}
+
 function load(){
   try{
     const raw = lsGet(KEY);
@@ -343,8 +445,7 @@ function load(){
     const s = JSON.parse(raw);
     if (!s || !Array.isArray(s.trips)) return blankStore();
     /* v1 items had no owner — treat them as shared */
-    s.trips.forEach(t => (t.take || []).forEach(i => { if (!i.who) i.who = EVERYONE; }));
-    return s;
+    return normalise(s);
   }catch(e){ console.warn("Stored data unreadable, starting fresh", e); return blankStore(); }
 }
 function save(){
@@ -364,8 +465,8 @@ const touch = o => { o.updatedAt = now(); };
 const travellers = () => (trip()?.travellers || []);
 
 function newTrip(){
-  return { id: uid(), name: "", dest: "", depart: "", ret: "", travellers: [],
-           take: [], bring: [], todo: [], updatedAt: now() };
+  return { id: uid(), name: "", dest: "", depart: "", ret: "", travellers: [], zone: "schengen",
+           take: [], bring: [], todo: [], bookings: [], plan: {}, updatedAt: now() };
 }
 
 /* ---------- dates ---------- */
@@ -489,7 +590,7 @@ function renderHeader(){
 
 /* ---------- tabs ---------- */
 const TABS = [["take","To take"],["bring","Bring back"],["todo","Before we go"],
-              ["itin","Itinerary"],["book","Bookings"],["money","Money"]];
+              ["plan","Day plan"],["book","Bookings"],["money","Money"],["days","Days away"]];
 let tab = "take";
 function renderTabs(){
   document.getElementById("tabs").innerHTML = TABS.map(([k, label]) =>
@@ -535,24 +636,10 @@ function render(){
   if (tab === "take")  v.innerHTML = viewTake(t);
   if (tab === "bring") v.innerHTML = viewBring(t);
   if (tab === "todo")  v.innerHTML = viewTodo(t);
-  if (tab === "itin")  v.innerHTML = stub("Itinerary","Everything with a date and time, in the order it happens.",
-    ["Flights, check-ins and check-outs pulled from Bookings",
-     "Car legs with distance, driving time, tolls and fuel",
-     "Ferry and tunnel crossings","A day-by-day view you can read on the road"]);
-  if (tab === "book")  v.innerHTML = stub("Bookings","Enter each booking once; it feeds the itinerary and the totals.",
-    ["Flights, hotels, car hire, ferries, activities",
-     "Reference numbers and a link to the confirmation email",
-     "Deposit paid, balance due, and when it's due",
-     "Passport, insurance and licence expiry dates"]);
-  if (tab === "money") v.innerHTML = stub("Money","Adds up every booking and expense so you know where you stand.",
-    ["Total cost, paid so far, still outstanding",
-     "Euros and sterling with one rate per trip","Split by person",
-     "Loose spending alongside the big bookings"]);
-}
-
-function stub(title, lead, items){
-  return `<div class="card"><div class="stub"><h3>${title}</h3><p>${lead}</p>
-    <ul>${items.map(i => `<li>${i}</li>`).join("")}</ul></div></div>` + tools();
+  if (tab === "plan")  v.innerHTML = viewPlan(t);
+  if (tab === "book")  v.innerHTML = viewBook(t);
+  if (tab === "money") v.innerHTML = viewMoney(t);
+  if (tab === "days")  v.innerHTML = viewDays();
 }
 
 /* ---------- To take (per person) ---------- */
@@ -729,6 +816,245 @@ function viewTodo(t){
   return html + tools();
 }
 
+/* ============================================================
+   Bookings
+   ============================================================ */
+const BTYPES = ["Flight","Accommodation","Car hire","Ferry","Train","Activity","Other"];
+const money = (n, cur) => (cur === "GBP" ? "\u00a3" : cur === "USD" ? "$" : "\u20ac") +
+  Number(n || 0).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function paidPill(b){
+  const cost = Number(b.cost || 0), paid = b.paid === "full" ? cost : Number(b.amt || 0);
+  if (b.paid === "full") return `<span class="pill full">Paid in full</span>`;
+  if (b.paid === "part") return `<span class="pill part">${money(paid, b.cur)} paid \u00b7 ${money(cost - paid, b.cur)} to go${b.due ? " by " + fmt(b.due) : ""}</span>`;
+  return `<span class="pill none">Not paid${b.due ? " \u00b7 due " + fmt(b.due) : ""}</span>`;
+}
+
+function viewBook(t){
+  const RO = !isOwner();
+  const list = [...t.bookings].sort((a, b) => (a.start || "9999").localeCompare(b.start || "9999"));
+  let html = RO
+    ? `<p class="locked">Only ${esc(owner())} can change the bookings.</p>`
+    : `<div class="addrow second"><button class="btn" data-act="newBook" style="flex:1">Add a booking</button></div>`;
+
+  if (!list.length){
+    html += `<div class="card"><div class="empty"><b>No bookings yet</b>
+      Flights, hotels, car hire, ferries. Each one you enter here shows up on the
+      day plan and in the totals.</div></div>`;
+  } else {
+    html += `<div class="card">${list.map(b => `
+      <div class="bk" ${RO ? "" : `data-act="editBook" data-id="${b.id}"`}>
+        <div class="top"><span class="nm">${esc(b.name || b.type)}</span><span class="ty">${esc(b.type)}</span></div>
+        <div class="meta">${b.start ? fmt(b.start) : "no date"}${b.time ? " \u00b7 " + esc(b.time) : ""}${b.end ? " \u2192 " + fmt(b.end) : ""}
+          ${b.prov ? " \u00b7 " + esc(b.prov) : ""}${b.ref ? " \u00b7 " + esc(b.ref) : ""}</div>
+        ${b.cost ? paidPill(b) : ""}
+        ${b.note ? `<div class="meta">${esc(b.note)}</div>` : ""}
+        <div>${b.url ? `<a class="lnk" href="${esc(b.url)}" target="_blank" rel="noopener">Open booking</a>` : ""}
+             ${b.email ? `<a class="lnk" href="${esc(b.email)}" target="_blank" rel="noopener">Confirmation email</a>` : ""}</div>
+      </div>`).join("")}</div>`;
+  }
+  return html + tools();
+}
+
+/* ============================================================
+   Day plan
+   ============================================================ */
+function dayList(t){
+  if (!t.depart) return [];
+  const out = [], last = t.ret || t.depart;
+  let d = new Date(t.depart + "T00:00"), end = new Date(last + "T00:00"), guard = 0;
+  while (d <= end && guard++ < 400){ out.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+  return out;
+}
+
+function bookingsOn(t, date){
+  return t.bookings.filter(b => b.start === date || (b.end && b.start && date > b.start && date <= b.end));
+}
+
+function viewPlan(t){
+  const RO = !isOwner();
+  const dl = dayList(t);
+  if (!dl.length) return `<div class="card"><div class="empty"><b>No dates yet</b>
+    Add the dates to this trip and the days will appear here, ready to plan.</div></div>` + tools();
+
+  let html = RO ? `<p class="locked">Only ${esc(owner())} can change the day plan.</p>` : "";
+  html += `<div class="card">${dl.map((date, n) => {
+    const on = bookingsOn(t, date);
+    const bits = on.map(b => b.start === date
+      ? `${esc(b.type)}: ${esc(b.name || "")}${b.time ? " " + esc(b.time) : ""}`
+      : `Staying at ${esc(b.name || b.prov || "")}`).join(" \u00b7 ");
+    const note = t.plan[date] || "";
+    return `<div class="day">
+      <h4>${new Date(date + "T00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" })}
+        <span class="count" style="font-weight:400"> \u00b7 day ${n + 1} of ${dl.length}</span></h4>
+      ${bits ? `<div class="bits">${bits}</div>` : ""}
+      <button class="plan ${note ? "" : "blank"}" ${RO ? "disabled" : `data-act="editPlan" data-date="${date}"`}>${
+        note ? esc(note) : (RO ? "Nothing planned" : "Add a plan for this day")}</button>
+    </div>`;
+  }).join("")}</div>`;
+  return html + tools();
+}
+
+/* ============================================================
+   Money
+   ============================================================ */
+function viewMoney(t){
+  if (!t.bookings.length) return `<div class="card"><div class="empty"><b>Nothing to add up yet</b>
+    Costs entered against bookings are totalled here.</div></div>` + tools();
+
+  const curs = [...new Set(t.bookings.map(b => b.cur || "EUR"))];
+  let html = "";
+  curs.forEach(cur => {
+    const bs = t.bookings.filter(b => (b.cur || "EUR") === cur);
+    const total = bs.reduce((n, b) => n + Number(b.cost || 0), 0);
+    const paid = bs.reduce((n, b) => n + (b.paid === "full" ? Number(b.cost || 0) : Number(b.amt || 0)), 0);
+    const heads = Math.max(1, t.travellers.length);
+    html += `<div class="card">
+      <div class="cardhead"><h3>${cur}</h3><span class="count">${bs.length} booking${bs.length === 1 ? "" : "s"}</span></div>
+      <div class="tot big"><span>Total cost</span><b>${money(total, cur)}</b></div>
+      <div class="tot"><span>Paid so far</span><b>${money(paid, cur)}</b></div>
+      <div class="tot"><span>Still to pay</span><b>${money(total - paid, cur)}</b></div>
+      ${t.travellers.length > 1 ? `<div class="tot"><span>Each, split ${heads} ways</span><b>${money(total / heads, cur)}</b></div>` : ""}
+    </div>`;
+  });
+
+  const due = t.bookings.filter(b => b.paid !== "full" && b.due).sort((a, b) => a.due.localeCompare(b.due));
+  if (due.length){
+    html += `<div class="card"><div class="cardhead"><h3>Payments still to make</h3></div>
+      ${due.map(b => {
+        const owing = Number(b.cost || 0) - Number(b.amt || 0);
+        const left = days(todayISO(), b.due);
+        return `<div class="tot"><span>${esc(b.name || b.type)}<span class="sub ${left < 0 ? "late" : ""}">${
+          left < 0 ? "overdue \u2014 was " + fmt(b.due) : fmt(b.due)}</span></span><b>${money(owing, b.cur)}</b></div>`;
+      }).join("")}</div>`;
+  }
+  return html + tools();
+}
+
+/* ============================================================
+   Days away — Schengen 90/180 and time out of the country
+   ============================================================ */
+const addDays = (iso, n) => { const d = new Date(iso + "T00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+
+/* Every dated trip as an inclusive day range. Entry and exit days both count. */
+function stays(zoneOnly){
+  const out = [];
+  S.trips.forEach(t => {
+    if (!t.depart) return;
+    if (zoneOnly && t.zone !== zoneOnly) return;
+    out.push({ from: t.depart, to: t.ret || t.depart, name: t.name || "Untitled trip" });
+  });
+  return out;
+}
+
+function daysInWindow(ranges, endISO, span){
+  const start = addDays(endISO, -(span - 1));
+  let n = 0;
+  ranges.forEach(r => {
+    const a = r.from > start ? r.from : start;
+    const b = r.to < endISO ? r.to : endISO;
+    if (a <= b) n += days(a, b) + 1;
+  });
+  return n;
+}
+
+/* Worst point in the rolling window across every day we know about */
+function schengenPeak(ranges){
+  if (!ranges.length) return { peak: 0, when: null };
+  let peak = 0, when = null;
+  ranges.forEach(r => {
+    let d = r.from, guard = 0;
+    while (d <= r.to && guard++ < 400){
+      const n = daysInWindow(ranges, d, 180);
+      if (n > peak){ peak = n; when = d; }
+      d = addDays(d, 1);
+    }
+  });
+  return { peak, when };
+}
+
+function yearTotals(ranges){
+  const byYear = {};
+  ranges.forEach(r => {
+    let d = r.from, guard = 0;
+    while (d <= r.to && guard++ < 2000){
+      byYear[d.slice(0, 4)] = (byYear[d.slice(0, 4)] || 0) + 1;
+      d = addDays(d, 1);
+    }
+  });
+  return byYear;
+}
+
+function gauge(used, limit){
+  const pct = Math.min(100, used / limit * 100);
+  return `<div class="gauge"><i class="${used > limit ? "over" : ""}" style="width:${pct}%"></i></div>`;
+}
+
+function viewDays(){
+  const RO = !isOwner();
+  const res = S.settings.residence;
+  const limit = Number(S.settings.outLimit) || 183;
+
+  let html = `<div class="card">
+    <div class="cardhead"><h3>Where do you live?</h3></div>
+    <div style="padding:12px">
+      <select id="resSel" ${RO ? "disabled" : ""} style="width:100%;padding:11px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)">
+        <option value="ES"${res === "ES" ? " selected" : ""}>Spain — resident</option>
+        <option value="UK"${res === "UK" ? " selected" : ""}>United Kingdom — resident</option>
+      </select>
+      <p class="count" style="margin:9px 0 0">This decides which limits apply. Change it when you move.</p>
+    </div></div>`;
+
+  const schengen = stays("schengen");
+  const all = stays(null);
+
+  if (res === "UK"){
+    const today = todayISO();
+    const usedNow = daysInWindow(schengen, today, 180);
+    const { peak, when } = schengenPeak(schengen);
+    html += `<div class="card">
+      <div class="cardhead"><h3>Schengen 90/180</h3><span class="count">limit 90 days</span></div>
+      <div class="tot big"><span>Used in the last 180 days</span><b>${usedNow}</b></div>
+      ${gauge(usedNow, 90)}
+      <div class="tot"><span>Left to use today</span><b>${Math.max(0, 90 - usedNow)}</b></div>
+      <div class="tot"><span>Worst point across all your trips</span><b>${peak}${when ? " on " + fmt(when) : ""}</b></div>
+      ${peak > 90 ? `<div class="tot" style="color:var(--warn)"><span>Over the limit</span><b>by ${peak - 90} days</b></div>` : ""}
+    </div>
+    <p class="count">Counts every trip marked as inside the Schengen area, with the day you
+       arrive and the day you leave both counted. Trips marked outside Schengen — the UK,
+       Ireland, and non-Schengen countries — are ignored, as the rules intend.</p>`;
+  } else {
+    const away = yearTotals(all);
+    const yrs = Object.keys(away).sort().reverse().slice(0, 5);
+    html += `<div class="card">
+      <div class="cardhead"><h3>Days outside Spain</h3><span class="count">watching ${limit} a year</span></div>
+      ${yrs.length ? yrs.map(y => `
+        <div class="tot"><span>${y}</span><b>${away[y]} day${away[y] === 1 ? "" : "s"}</b></div>
+        ${gauge(away[y], limit)}`).join("") : `<div class="empty">No dated trips yet.</div>`}
+    </div>
+    <p class="count">Long absences can matter for a Spanish residence permit and for where you
+       count as tax resident. The threshold above is a marker you set yourself, not a rule —
+       check your own position with a gestor or adviser.</p>`;
+
+    const { peak } = schengenPeak(schengen);
+    html += `<div class="card"><div class="cardhead"><h3>When you move to the UK</h3></div>
+      <div style="padding:12px" class="count">Once you switch this page to United Kingdom, the
+        Schengen 90/180 rule starts applying to your trips back. On the trips already entered,
+        the busiest 180-day stretch inside Schengen holds ${peak} days — the limit is 90.</div></div>`;
+  }
+
+  html += `<div class="card"><div class="cardhead"><h3>Every dated trip</h3></div>
+    ${all.length ? all.sort((a, b) => b.from.localeCompare(a.from)).map(r => `
+      <div class="tot"><span>${esc(r.name)}<span class="sub">${fmt(r.from)} \u2013 ${fmt(r.to)}</span></span>
+        <b>${days(r.from, r.to) + 1}</b></div>`).join("")
+      : `<div class="empty">Nothing dated yet.</div>`}</div>
+    <p class="count">These counts are only as good as the dates you enter, and they are a
+       planning aid rather than advice. The border system now records entries and exits
+       electronically, so check anything borderline against the official position.</p>`;
+
+  return html + tools();
+}
+
 function tools(){
   return `<div class="toolbar">
     <button class="btn ghost" data-act="export">Export a backup</button>
@@ -763,7 +1089,7 @@ document.addEventListener("click", e => {
   /* Everything except a person's own packing list belongs to the first-named traveller */
   const LOCKED = new Set(["addBring","quickBring","tglBring","delBring",
                           "addTodo","quickTodo","allTodo","tglTodo","delTodo",
-                          "pickDate","import"]);
+                          "pickDate","import","newBook","editBook","editPlan"]);
   if (!isOwner()){
     if (LOCKED.has(a)) return refuse();
     if (a === "tglTake" || a === "delTake"){
@@ -822,6 +1148,9 @@ document.addEventListener("click", e => {
       return;
     }
     case "pickDate": return openDate(id);
+    case "newBook":  return openBook(null);
+    case "editBook": return openBook(id);
+    case "editPlan": return openPlan(b.dataset.date);
     case "allTodo": {
       const on = new Set(t.todo.map(i => i.text.toLowerCase()));
       S.catTodo.filter(c => !on.has(c.text.toLowerCase())).forEach(c =>
@@ -892,6 +1221,88 @@ document.getElementById("dateSave").onclick = () => {
   save(); dateDlg.close(); render();
 };
 
+/* ---------- booking dialog ---------- */
+const bookDlg = document.getElementById("bookDlg");
+let bookId = null;
+document.getElementById("b_type").innerHTML = BTYPES.map(x => `<option>${x}</option>`).join("");
+
+function openBook(id){
+  const t = trip(); if (!t) return;
+  const b = id ? t.bookings.find(x => x.id === id) : null;
+  bookId = id || null;
+  document.getElementById("bookTitle").textContent = b ? "Edit booking" : "New booking";
+  b_type.value  = b ? b.type : "Accommodation";
+  b_name.value  = b ? b.name || "" : "";
+  b_prov.value  = b ? b.prov || "" : "";
+  b_url.value   = b ? b.url || "" : "";
+  b_email.value = b ? b.email || "" : "";
+  b_ref.value   = b ? b.ref || "" : "";
+  b_start.value = b ? b.start || "" : (t.depart || "");
+  b_time.value  = b ? b.time || "" : "";
+  b_end.value   = b ? b.end || "" : "";
+  b_cost.value  = b ? b.cost ?? "" : "";
+  b_cur.value   = b ? b.cur || "EUR" : "EUR";
+  b_paid.value  = b ? b.paid || "none" : "none";
+  b_amt.value   = b ? b.amt ?? "" : "";
+  b_due.value   = b ? b.due || "" : "";
+  b_note.value  = b ? b.note || "" : "";
+  document.getElementById("bookDelete").style.display = b ? "" : "none";
+  bookDlg.showModal();
+}
+
+document.getElementById("bookCancel").onclick = () => bookDlg.close();
+
+document.getElementById("bookSave").onclick = () => {
+  const t = trip(); if (!t) return;
+  let b = bookId ? t.bookings.find(x => x.id === bookId) : null;
+  if (!b){ b = { id: uid() }; t.bookings.push(b); }
+  Object.assign(b, {
+    type: b_type.value, name: b_name.value.trim(), prov: b_prov.value.trim(),
+    url: b_url.value.trim(), email: b_email.value.trim(), ref: b_ref.value.trim(),
+    start: b_start.value, time: b_time.value, end: b_end.value,
+    cost: b_cost.value === "" ? "" : Number(b_cost.value), cur: b_cur.value,
+    paid: b_paid.value, amt: b_amt.value === "" ? "" : Number(b_amt.value),
+    due: b_due.value, note: b_note.value.trim(), updatedAt: now()
+  });
+  if (b.paid === "full") b.amt = b.cost;
+  touch(t); save(); bookDlg.close(); render();
+};
+
+document.getElementById("bookDelete").onclick = () => {
+  const t = trip();
+  if (!bookId || !confirm("Delete this booking?")) return;
+  t.bookings = t.bookings.filter(x => x.id !== bookId);
+  touch(t); save(); bookDlg.close(); render();
+};
+
+/* ---------- day plan dialog ---------- */
+const planDlg = document.getElementById("planDlg");
+let planDate = null;
+
+function openPlan(date){
+  const t = trip(); if (!t) return;
+  planDate = date;
+  document.getElementById("planTitle").textContent =
+    new Date(date + "T00:00").toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long" });
+  document.getElementById("p_text").value = t.plan[date] || "";
+  planDlg.showModal();
+}
+document.getElementById("planCancel").onclick = () => planDlg.close();
+document.getElementById("planSave").onclick = () => {
+  const t = trip(); if (!t || !planDate) return;
+  const v = document.getElementById("p_text").value.trim();
+  if (v) t.plan[planDate] = v; else delete t.plan[planDate];
+  touch(t); save(); planDlg.close(); render();
+};
+
+/* ---------- country of residence ---------- */
+document.addEventListener("change", e => {
+  if (e.target.id !== "resSel") return;
+  if (!isOwner()) return refuse();
+  S.settings.residence = e.target.value;
+  save(); render();
+});
+
 /* ---------- trip dialog ---------- */
 const dlg = document.getElementById("tripDlg");
 let editing = null;
@@ -904,6 +1315,7 @@ function openTrip(t){
   f_dep.value  = t ? t.depart : "";
   f_ret.value  = t ? t.ret : "";
   f_trav.value = t ? (t.travellers || []).join(", ") : "";
+  f_zone.value = t ? (t.zone || "schengen") : "schengen";
   document.getElementById("dlgDelete").style.display = t ? "" : "none";
   dlg.showModal();
 }
@@ -917,6 +1329,7 @@ document.getElementById("dlgSave").onclick = () => {
   t.depart = f_dep.value;
   t.ret = f_ret.value;
   t.travellers = f_trav.value.split(",").map(s => s.trim()).filter(Boolean);
+  t.zone = f_zone.value;
   touch(t);
   if (!editing){ S.trips.push(t); S.activeTripId = t.id; }
   save(); dlg.close(); render();
@@ -956,7 +1369,7 @@ function doImport(){
         alert("That file isn't a trips backup — nothing has changed.");
         return;
       }
-      d.trips.forEach(t => (t.take || []).forEach(i => { if (!i.who) i.who = EVERYONE; }));
+      normalise(d);
 
       if (!S.trips.length){
         S = d;                                   /* empty device — just take it */
