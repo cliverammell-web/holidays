@@ -128,6 +128,7 @@ main{padding:var(--pad);max-width:640px;margin:0 auto}
 }
 .btn:active{opacity:.85}
 .btn.ghost{background:var(--card);color:var(--accent);border:1px solid var(--line)}
+.btn.danger{background:var(--warn)}
 
 ul.list{list-style:none;margin:0;padding:0}
 ul.list li{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
@@ -295,6 +296,17 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
   <div class="dlgfoot">
     <button class="btn ghost" id="dlgDelete" type="button">Delete trip</button>
     <button class="btn" id="dlgSave" type="button">Save trip</button>
+  </div>
+</dialog>
+
+<dialog id="askDlg">
+  <div class="dlgbody">
+    <h2 id="askTitle">Remove this?</h2>
+    <p class="hint" id="askText" style="margin:-6px 0 0"></p>
+  </div>
+  <div class="dlgfoot">
+    <button class="btn ghost" id="askNo" type="button">Keep it</button>
+    <button class="btn danger" id="askYes" type="button">Remove</button>
   </div>
 </dialog>
 
@@ -1204,7 +1216,12 @@ document.addEventListener("click", e => {
       touch(t); break;
     }
     case "tglTake": { const i = t.take.find(x => x.id === id); i.packed = !i.packed; touch(i); touch(t); break; }
-    case "delTake": { t.take = t.take.filter(x => x.id !== id); touch(t); break; }
+    case "delTake": {
+      const it = t.take.find(x => x.id === id); if (!it) return;
+      return ask("Remove this?", `"${it.name || it.text}" will be taken off the packing list.`, () => {
+        t.take = t.take.filter(x => x.id !== id); touch(t); save(); render();
+      });
+    }
 
     case "addBring": {
       const name = val("bringIn"); if (!name) return;
@@ -1217,7 +1234,12 @@ document.addEventListener("click", e => {
       touch(t); break;
     }
     case "tglBring": { const i = t.bring.find(x => x.id === id); i.got = !i.got; touch(i); touch(t); break; }
-    case "delBring": { t.bring = t.bring.filter(x => x.id !== id); touch(t); break; }
+    case "delBring": {
+      const it = t.bring.find(x => x.id === id); if (!it) return;
+      return ask("Remove this?", `"${it.name || it.text}" will be taken off the bring-back list.`, () => {
+        t.bring = t.bring.filter(x => x.id !== id); touch(t); save(); render();
+      });
+    }
 
     case "addTodo": {
       const text = val("todoIn"); if (!text) return;
@@ -1247,7 +1269,12 @@ document.addEventListener("click", e => {
       touch(t); break;
     }
     case "tglTodo": { const i = t.todo.find(x => x.id === id); i.done = !i.done; touch(i); touch(t); break; }
-    case "delTodo": { t.todo = t.todo.filter(x => x.id !== id); touch(t); break; }
+    case "delTodo": {
+      const it = t.todo.find(x => x.id === id); if (!it) return;
+      return ask("Remove this?", `"${it.name || it.text}" will be taken off the jobs.`, () => {
+        t.todo = t.todo.filter(x => x.id !== id); touch(t); save(); render();
+      });
+    }
     default: return;
   }
   save(); render();
@@ -1310,6 +1337,22 @@ document.getElementById("dateSave").onclick = () => {
   save(); dateDlg.close(); render();
 };
 
+/* ---------- "are you sure?" ---------- */
+const askDlg = document.getElementById("askDlg");
+let askFn = null;
+
+function ask(what, detail, fn){
+  document.getElementById("askTitle").textContent = what;
+  document.getElementById("askText").textContent = detail || "";
+  askFn = fn;
+  askDlg.showModal();
+}
+document.getElementById("askNo").onclick = () => { askFn = null; askDlg.close(); };
+document.getElementById("askYes").onclick = () => {
+  const fn = askFn; askFn = null; askDlg.close();
+  if (fn) fn();
+};
+
 /* ---------- booking dialog ---------- */
 const bookDlg = document.getElementById("bookDlg");
 let bookId = null;
@@ -1358,10 +1401,13 @@ document.getElementById("bookSave").onclick = () => {
 };
 
 document.getElementById("bookDelete").onclick = () => {
-  const t = trip();
-  if (!bookId || !confirm("Delete this booking?")) return;
-  t.bookings = t.bookings.filter(x => x.id !== bookId);
-  touch(t); save(); bookDlg.close(); render();
+  const t = trip(); if (!bookId) return;
+  const b = t.bookings.find(x => x.id === bookId);
+  bookDlg.close();
+  ask("Remove this booking?", `${b && b.name ? b.name : "This booking"} will be deleted, along with its cost and payment details.`, () => {
+    t.bookings = t.bookings.filter(x => x.id !== bookId);
+    touch(t); save(); render();
+  });
 };
 
 /* ---------- day plan dialog ---------- */
@@ -1426,10 +1472,13 @@ document.getElementById("dlgSave").onclick = () => {
 
 document.getElementById("dlgDelete").onclick = () => {
   if (!editing) return;
-  if (!confirm(`Delete "${editing.name}" and everything in it?`)) return;
-  S.trips = S.trips.filter(x => x.id !== editing.id);
-  S.activeTripId = S.trips.length ? S.trips[0].id : null;
-  save(); dlg.close(); render();
+  const gone = editing;
+  dlg.close();
+  ask("Delete this whole trip?", `"${gone.name}" will go, with its packing lists, jobs, bookings and day plan. This can't be undone.`, () => {
+    S.trips = S.trips.filter(x => x.id !== gone.id);
+    S.activeTripId = S.trips.length ? S.trips[0].id : null;
+    save(); render();
+  });
 };
 
 document.getElementById("tripSel").onchange = e => { S.activeTripId = e.target.value; save(); render(); };
