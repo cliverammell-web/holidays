@@ -81,7 +81,7 @@ header{
 .jfill{position:absolute;left:0;top:0;height:2px;background:var(--accent-hi)}
 .jdot{position:absolute;top:-4px;width:10px;height:10px;border-radius:50%;
   background:var(--accent);border:2px solid var(--card);transform:translateX(-5px)}
-.jnote{font-size:12.5px;color:var(--accent);font-weight:600}
+.jnote{font-size:12.5px;font-weight:400;color:var(--muted)}
 
 /* ---------- tabs ---------- */
 nav{
@@ -134,6 +134,11 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .txt{flex:1;min-width:0;word-break:break-word}
 .sub{display:block;font-size:12.5px;color:var(--muted)}
 .sub.late{color:var(--warn);font-weight:600}
+.datebtn{
+  display:block;margin-top:2px;padding:0 0 1px;border:0;border-bottom:1px dashed var(--line);
+  background:none;font-size:12.5px;color:var(--muted);cursor:pointer;text-align:left;
+}
+.datebtn.late{color:var(--warn);font-weight:600;border-bottom-color:var(--warn)}
 .del{flex:0 0 auto;border:0;background:none;color:var(--muted);font-size:17px;cursor:pointer;padding:0 2px;line-height:1}
 
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px dashed var(--line)}
@@ -210,6 +215,19 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
   <div class="dlgfoot">
     <button class="btn ghost" id="dlgDelete" type="button">Delete trip</button>
     <button class="btn" id="dlgSave" type="button">Save trip</button>
+  </div>
+</dialog>
+
+<dialog id="dateDlg">
+  <div class="dlgbody">
+    <h2>When should this be done?</h2>
+    <p class="hint" id="dateJob" style="margin:-8px 0 12px"></p>
+    <div class="field"><label for="f_due">Date</label><input id="f_due" type="date"></div>
+    <p class="hint" id="dateRel"></p>
+  </div>
+  <div class="dlgfoot">
+    <button class="btn ghost" id="dateCancel" type="button">Cancel</button>
+    <button class="btn" id="dateSave" type="button">Set date</button>
   </div>
 </dialog>
 
@@ -548,39 +566,42 @@ function viewBring(t){
 }
 
 /* ---------- Before we go (shared) ---------- */
+function todoDue(t, i){ return i.due || dueDate(t.depart, i.offset ?? 0); }
+
+function whenLabel(due){
+  if (!due) return { text: "Tap to set a date", late: false };
+  const left = days(todayISO(), due);
+  if (left < 0)  return { text: `Overdue — was ${fmt(due)}`, late: true };
+  if (left === 0) return { text: "Today", late: false };
+  if (left === 1) return { text: "Tomorrow", late: false };
+  return { text: `${fmt(due)} · in ${left} days`, late: false };
+}
+
 function viewTodo(t){
-  const list = [...t.todo].sort((a, b) => (a.offset ?? 0) - (b.offset ?? 0));
+  const list = [...t.todo].sort((a, b) =>
+    (todoDue(t, a) || "9999-12-31").localeCompare(todoDue(t, b) || "9999-12-31"));
   const done = list.filter(i => i.done).length;
+
   let html = `
-    <div class="addrow">
+    <div class="addrow second">
       <input id="todoIn" placeholder="Add a job" autocomplete="off">
       <button class="btn" data-act="addTodo">Add</button>
-    </div>
-    <div class="addrow second">
-      <input id="todoOff" type="number" value="7" aria-label="Days before leaving">
-      <span class="count" style="align-self:center;flex:2">days before leaving</span>
     </div>`;
 
   if (!list.length){
     html += `<div class="card"><div class="empty"><b>Nothing to do yet</b>
-      Add a job above, or load your usual list below.</div></div>`;
+      Add a job above, or load your usual list below. You choose the date for each one.</div></div>`;
   } else {
     html += `<div class="card">
       <div class="cardhead"><h3>Before we go</h3><span class="count">${done} of ${list.length}</span></div>
       <ul class="list">${list.map(i => {
-        const due = dueDate(t.depart, i.offset ?? 0);
-        const left = due ? days(todayISO(), due) : null;
-        let when = "No date yet";
-        if (due){
-          if (left < 0) when = `Overdue — was ${fmt(due)}`;
-          else if (left === 0) when = "Today";
-          else if (left === 1) when = "Tomorrow";
-          else when = `${fmt(due)} · in ${left} days`;
-        }
-        const late = !i.done && left !== null && left < 0;
+        const w = whenLabel(todoDue(t, i));
+        const late = !i.done && w.late;
         return `<li class="${i.done ? "done" : ""}">
           <button class="chk" data-on="${i.done ? 1 : 0}" data-act="tglTodo" data-id="${i.id}" aria-label="Mark done">${i.done ? "&#10003;" : ""}</button>
-          <span class="txt">${esc(i.text)}<span class="sub ${late ? "late" : ""}">${when}</span></span>
+          <span class="txt">${esc(i.text)}
+            <button class="datebtn ${late ? "late" : ""}" data-act="pickDate" data-id="${i.id}"
+              aria-label="Change the date for ${esc(i.text)}">${w.text}</button></span>
           <button class="del" data-act="delTodo" data-id="${i.id}" aria-label="Remove">&times;</button>
         </li>`;
       }).join("")}</ul></div>`;
@@ -589,9 +610,9 @@ function viewTodo(t){
   const onList = new Set(t.todo.map(i => i.text.toLowerCase()));
   const sugg = S.catTodo.filter(c => !onList.has(c.text.toLowerCase()));
   if (sugg.length){
-    html += `<div class="card"><div class="chiphead">Your usual jobs</div>
+    html += `<div class="card"><div class="chiphead">Your usual jobs — tap one and pick its date</div>
       <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickTodo" data-id="${c.id}">${esc(c.text)}</button>`).join("")}
-        <button class="chip" data-act="allTodo" style="border-color:var(--accent);color:var(--accent)">Add all</button></div></div>`;
+        <button class="chip" data-act="allTodo" style="border-color:var(--accent);color:var(--accent)">Add all, dates as usual</button></div></div>`;
   }
   return html + tools();
 }
@@ -660,16 +681,22 @@ document.addEventListener("click", e => {
 
     case "addTodo": {
       const text = val("todoIn"); if (!text) return;
-      const n = parseInt(val("todoOff"), 10);
-      const offset = -Math.abs(isNaN(n) ? 7 : n);
-      t.todo.push({ id: uid(), text, offset, done: false, updatedAt: now() });
-      learnTodo(text, offset); touch(t); break;
+      const known = S.catTodo.find(x => x.text.toLowerCase() === text.toLowerCase());
+      const offset = known ? known.offset : -7;
+      const item = { id: uid(), text, offset, done: false, updatedAt: now() };
+      t.todo.push(item); learnTodo(text, offset); touch(t);
+      save(); render(); openDate(item.id);
+      document.getElementById("todoIn").value = "";
+      return;
     }
     case "quickTodo": {
       const c = S.catTodo.find(x => x.id === id); if (!c) return;
-      t.todo.push({ id: uid(), text: c.text, offset: c.offset, done: false, updatedAt: now() });
-      touch(t); break;
+      const item = { id: uid(), text: c.text, offset: c.offset, done: false, updatedAt: now() };
+      t.todo.push(item); touch(t);
+      save(); render(); openDate(item.id);
+      return;
     }
+    case "pickDate": return openDate(id);
     case "allTodo": {
       const on = new Set(t.todo.map(i => i.text.toLowerCase()));
       S.catTodo.filter(c => !on.has(c.text.toLowerCase())).forEach(c =>
@@ -692,6 +719,53 @@ document.addEventListener("keydown", e => {
   const act = { takeIn:"addTake", bringIn:"addBring", todoIn:"addTodo" }[e.target.id];
   if (act) document.querySelector(`[data-act="${act}"]`).click();
 });
+
+/* ---------- due date picker ---------- */
+const dateDlg = document.getElementById("dateDlg");
+let dateId = null;
+
+function openDate(itemId){
+  const t = trip(); if (!t) return;
+  const i = t.todo.find(x => x.id === itemId); if (!i) return;
+  dateId = itemId;
+  document.getElementById("dateJob").textContent = i.text;
+  document.getElementById("f_due").value = todoDue(t, i) || todayISO();
+  showRel();
+  dateDlg.showModal();
+}
+
+function showRel(){
+  const t = trip(), v = document.getElementById("f_due").value;
+  const rel = document.getElementById("dateRel");
+  if (!v || !t.depart){ rel.textContent = ""; return; }
+  const d = days(v, t.depart);
+  rel.textContent = d === 0 ? "The day you leave"
+    : d > 0 ? `${d} day${d === 1 ? "" : "s"} before you leave`
+            : `${-d} day${d === -1 ? "" : "s"} after you leave`;
+}
+document.getElementById("f_due").addEventListener("input", showRel);
+document.getElementById("dateCancel").onclick = () => dateDlg.close();
+
+document.getElementById("dateSave").onclick = () => {
+  const t = trip(), i = t.todo.find(x => x.id === dateId);
+  const v = document.getElementById("f_due").value;
+  if (!i || !v){ dateDlg.close(); return; }
+
+  if (t.depart){
+    /* store as an offset so the job reuses correctly on the next trip */
+    i.offset = -days(v, t.depart);
+    delete i.due;
+  } else {
+    i.due = v;
+  }
+  touch(i); touch(t);
+
+  /* remember this timing for next time */
+  const c = S.catTodo.find(x => x.text.toLowerCase() === i.text.toLowerCase());
+  if (c && i.offset !== undefined) c.offset = i.offset;
+
+  save(); dateDlg.close(); render();
+};
 
 /* ---------- trip dialog ---------- */
 const dlg = document.getElementById("tripDlg");
