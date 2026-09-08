@@ -39,11 +39,20 @@ header{
   position:sticky;top:0;z-index:20;
 }
 .tripbar{display:flex;align-items:center;gap:8px}
-.tripbar select{
-  flex:1;min-width:0;border:0;background:transparent;
-  font-family:Georgia,"Times New Roman",serif;font-size:21px;color:var(--ink);
-  padding:2px 0;appearance:none;
+.trippick{position:relative;flex:1;min-width:0}
+.trippick select{
+  width:100%;border:1px solid var(--line);background:#F1F7FD;border-radius:9px;
+  font-family:Georgia,"Times New Roman",serif;font-size:20px;color:var(--ink);
+  padding:8px 34px 8px 11px;appearance:none;-webkit-appearance:none;
+  text-overflow:ellipsis;cursor:pointer;
 }
+.trippick select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.trippick::after{
+  content:"";position:absolute;right:13px;top:50%;width:9px;height:9px;
+  border-right:2px solid var(--accent);border-bottom:2px solid var(--accent);
+  transform:translateY(-70%) rotate(45deg);pointer-events:none;
+}
+.tripcount{font-size:12.5px;color:var(--muted);margin-top:6px}
 .iconbtn{
   border:1px solid var(--line);background:var(--card);border-radius:8px;
   width:36px;height:36px;flex:0 0 36px;font-size:19px;line-height:1;
@@ -176,10 +185,11 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
 
 <header id="hdr" hidden>
   <div class="tripbar">
-    <select id="tripSel" aria-label="Choose trip"></select>
+    <div class="trippick"><select id="tripSel" aria-label="Choose which trip to open"></select></div>
     <button class="iconbtn" id="editTrip" title="Edit this trip">&#9998;</button>
     <button class="iconbtn" id="newTrip" title="New trip">+</button>
   </div>
+  <div class="tripcount" id="tripCount"></div>
   <div class="userchip" id="userChip"></div>
   <div class="journey" id="journey"></div>
 </header>
@@ -340,9 +350,28 @@ function viewSignIn(){
    ============================================================ */
 function renderHeader(){
   const sel = document.getElementById("tripSel");
-  sel.innerHTML = S.trips.length
-    ? S.trips.map(t => `<option value="${t.id}"${t.id === S.activeTripId ? " selected" : ""}>${esc(t.name || "Untitled trip")}</option>`).join("")
-    : `<option>No trips yet</option>`;
+  const cnt = document.getElementById("tripCount");
+  const today = todayISO();
+
+  const opt = t => {
+    const when = t.depart ? new Date(t.depart + "T00:00").toLocaleDateString("en-GB", { month:"short", year:"numeric" }) : "no dates";
+    return `<option value="${t.id}"${t.id === S.activeTripId ? " selected" : ""}>${esc(t.name || "Untitled trip")} — ${when}</option>`;
+  };
+
+  if (!S.trips.length){
+    sel.innerHTML = `<option>No trips yet</option>`;
+    cnt.textContent = "Tap + to set up your first trip";
+  } else {
+    const sorted = [...S.trips].sort((a, b) => (a.depart || "9999").localeCompare(b.depart || "9999"));
+    const coming = sorted.filter(t => !t.depart || t.depart >= today);
+    const past   = sorted.filter(t => t.depart && t.depart < today).reverse();
+    sel.innerHTML =
+      (coming.length ? `<optgroup label="Coming up">${coming.map(opt).join("")}</optgroup>` : "") +
+      (past.length   ? `<optgroup label="Been and gone">${past.map(opt).join("")}</optgroup>` : "");
+    cnt.textContent = S.trips.length === 1
+      ? "1 trip saved · tap + to add another"
+      : `${S.trips.length} trips saved · tap the name to switch between them`;
+  }
 
   const chip = document.getElementById("userChip");
   if (user && travellers().includes(user)){
@@ -569,11 +598,10 @@ function viewTodo(t){
 
 function tools(){
   return `<div class="toolbar">
-    <button class="btn" data-act="saveAs">Save as a copy</button>
     <button class="btn ghost" data-act="export">Export a backup</button>
     <button class="btn ghost" data-act="import">Restore from file</button>
   </div>
-  <p class="count" style="margin-top:8px">Everything saves as you type. Trips stay here until you delete them.</p>`;
+  <p class="count" style="margin-top:8px">Everything saves as you type. Every trip stays in the list at the top until you delete it.</p>`;
 }
 
 /* ---------- catalogue learning ---------- */
@@ -596,7 +624,6 @@ document.addEventListener("click", e => {
   if (a === "signout"){ user = ""; localStorage.removeItem(UKEY); render(); return; }
   if (a === "export") return doExport();
   if (a === "import") return doImport();
-  if (a === "saveAs") return doSaveAs();
   if (!t) return;
 
   const val = s => { const el = document.getElementById(s); return el ? el.value.trim() : ""; };
@@ -665,31 +692,6 @@ document.addEventListener("keydown", e => {
   const act = { takeIn:"addTake", bringIn:"addBring", todoIn:"addTodo" }[e.target.id];
   if (act) document.querySelector(`[data-act="${act}"]`).click();
 });
-
-/* ---------- Save as a copy ---------- */
-function doSaveAs(){
-  const t = trip(); if (!t) return;
-  const name = prompt("Save this trip as a new copy called:", `${t.name} (copy)`);
-  if (name === null) return;
-  const clean = name.trim(); if (!clean) return;
-
-  const keepTicks = confirm(
-    "Keep the ticks?\n\nOK — copy exactly as it is, for a record of this trip.\n" +
-    "Cancel — clear every tick, ready to reuse for the next trip.");
-
-  const copy = JSON.parse(JSON.stringify(t));
-  copy.id = uid();
-  copy.name = clean;
-  copy.updatedAt = now();
-  const fresh = () => uid();
-  copy.take.forEach(i => { i.id = fresh(); if (!keepTicks) i.packed = false; });
-  copy.bring.forEach(i => { i.id = fresh(); if (!keepTicks) i.got = false; });
-  copy.todo.forEach(i => { i.id = fresh(); if (!keepTicks) i.done = false; });
-
-  S.trips.push(copy);
-  S.activeTripId = copy.id;
-  save(); render();
-}
 
 /* ---------- trip dialog ---------- */
 const dlg = document.getElementById("tripDlg");
