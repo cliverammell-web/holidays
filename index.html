@@ -74,6 +74,9 @@ header{
   border:0;background:var(--accent);color:#fff;border-radius:999px;
   padding:3px 10px;font-size:12px;cursor:pointer;
 }
+/* anyone other than the first-named traveller — makes it obvious at a glance */
+.userchip.guest{background:#FCAE1E;border-color:#D8900A;color:#3A2A00}
+.userchip.guest button{background:#3A2A00;color:#FCAE1E}
 
 /* journey rule */
 .journey{margin-top:12px}
@@ -667,6 +670,7 @@ function renderHeader(){
   const chip = document.getElementById("userChip");
   if (user && travellers().includes(user)){
     chip.hidden = false;
+    chip.className = "userchip" + (canEdit ? "" : " guest");
     chip.innerHTML = `<b>${esc(user)}</b><button data-act="signout">Not you?</button>`;
   } else {
     chip.hidden = true;
