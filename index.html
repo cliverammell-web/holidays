@@ -486,6 +486,7 @@ function blankStore(){
     hidden: { take: {}, bring: [] },
     seedsCleared: true,
     seedsUnhidden: true,
+    catTakeReset: true,
     settings: { residence: "ES", outLimit: 183 },
     updatedAt: now()
   };
@@ -518,6 +519,15 @@ function normalise(s){
     s.catBring = (s.catBring || []).filter(c => !SHIPPED.includes(c.name.toLowerCase()));
     s.seedsCleared = true;
   }
+  /* Earlier versions pooled every typed packing item into one shared catalogue,
+     so Clive's items were offered to Chris and vice versa. Personal history now
+     comes from the trips themselves, so reduce this back to the starter list. */
+  if (!s.catTakeReset){
+    const starter = new Set(SEED_TAKE.map(([n]) => n.toLowerCase()));
+    s.catTake = (s.catTake || []).filter(c => starter.has(c.name.toLowerCase()));
+    s.catTakeReset = true;
+  }
+
   if (!s.seedsUnhidden){
     s.hidden.bring = s.hidden.bring.filter(n => !SHIPPED.includes(n));
     s.seedsUnhidden = true;
