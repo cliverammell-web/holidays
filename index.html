@@ -497,10 +497,11 @@ function normalise(s){
     t.bookings = t.bookings || []; t.plan = t.plan || {}; t.gone = t.gone || [];
     t.travellers = t.travellers || [];
     t.take.forEach(i => { if (!i.who) i.who = EVERYONE; });
+    t.gone = [...new Map(t.gone.map(g => [g.id, g])).values()];   /* clears any past duplication */
     if (t.zone === undefined) t.zone = "schengen";
   });
   s.catTake = s.catTake || []; s.catBring = s.catBring || []; s.catTodo = s.catTodo || [];
-  s.goneTrips = s.goneTrips || [];              /* trips deleted here, so sync can't revive them */
+  s.goneTrips = [...new Map((s.goneTrips || []).map(g => [g.id, g])).values()];
   s.hidden = s.hidden || { take: [], bring: [] };   /* suggestions removed by hand */
   s.hidden.take = s.hidden.take || []; s.hidden.bring = s.hidden.bring || [];
 
@@ -1512,7 +1513,8 @@ function mergeById(a = [], b = [], gone = new Set()){
 
 function mergeTrip(a, b){
   const newer = (b.updatedAt || "") > (a.updatedAt || "") ? b : a;
-  const gone = [...(a.gone || []), ...(b.gone || [])];
+  /* Deduplicate: concatenating these on every merge doubles the list each sync. */
+  const gone = [...new Map([...(a.gone || []), ...(b.gone || [])].map(g => [g.id, g])).values()];
   const goneIds = new Set(gone.map(g => g.id));
   return {
     ...newer,
@@ -1625,7 +1627,8 @@ function syncLabel(){
 function openSync(){
   document.getElementById("s_url").value = SYNC.url;
   document.getElementById("s_code").value = SYNC.code;
-  document.getElementById("syncState").textContent = syncLabel();
+  const kb = (JSON.stringify(S).length / 1024).toFixed(0);
+  document.getElementById("syncState").textContent = syncLabel() + " \u00b7 " + kb + " KB";
   document.getElementById("syncDlg").showModal();
 }
 document.getElementById("syncCancel").onclick = () => document.getElementById("syncDlg").close();
