@@ -330,6 +330,16 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
   </div>
 </dialog>
 
+<dialog id="sayDlg">
+  <div class="dlgbody">
+    <h2 id="sayTitle"></h2>
+    <p class="hint" id="sayText" style="margin:-6px 0 0"></p>
+  </div>
+  <div class="dlgfoot">
+    <button class="btn" id="sayOk" type="button">OK</button>
+  </div>
+</dialog>
+
 <dialog id="askDlg">
   <div class="dlgbody">
     <h2 id="askTitle">Remove this?</h2>
@@ -558,7 +568,8 @@ const owner = () => trip()?.travellers[0] || "";
 const isOwner = () => { const t = trip(); return !t || !t.travellers.length || user === owner(); };
 const ownedByUser = i => i.who === user;
 function refuse(){
-  alert(`Only ${owner()} can change this. Your own packing list is yours to edit.`);
+  notice("That one's not yours to change",
+    `Only ${owner()} can change this. Your own packing list, and the suggestions behind it, are yours to edit.`);
 }
 const touch = o => { o.updatedAt = now(); };
 /* Record what was deleted, so a merge from another device doesn't bring it back */
@@ -753,10 +764,12 @@ function render(){
 
 /* Suggestions are drawn from the remembered catalogue AND everything on any
    trip, past or planned, minus anything removed from the list by hand. */
+const SHARED = "__shared";
+
 function hiddenSet(kind){
-  const list = kind === "bring"
-    ? (S.hidden.bring || [])
-    : [...(S.hidden.take["*"] || []), ...(S.hidden.take[user] || [])];
+  const list = kind === "bring"  ? (S.hidden.bring || [])
+             : kind === "shared" ? [...(S.hidden.take["*"] || []), ...(S.hidden.take[SHARED] || [])]
+             : [...(S.hidden.take["*"] || []), ...(S.hidden.take[user] || [])];
   return new Set(list.map(x => x.toLowerCase()));
 }
 
@@ -771,20 +784,21 @@ function suggestions(kind, exclude){
     found.set(k, { name, cat: cat || "Other" });
   };
 
-  (kind === "take" ? S.catTake : S.catBring).forEach(c => add(c.name, c.cat));
+  if (kind === "take") S.catTake.forEach(c => add(c.name, c.cat));
+  if (kind === "bring") S.catBring.forEach(c => add(c.name, c.cat));
 
   S.trips.forEach(t => {
     if (kind === "bring") return t.bring.forEach(i => add(i.name));
-    /* Packing history is personal: your own items, plus the shared ones if
-       you're the person who manages them. */
     t.take.forEach(i => {
-      if (i.who === user || (isOwner() && i.who === EVERYONE) || !t.travellers.length) add(i.name, i.cat);
+      /* Shared items get their own list. Personal history stays personal. */
+      if (kind === "shared") { if (i.who === EVERYONE) add(i.name, i.cat); return; }
+      if (i.who === user || !t.travellers.length) add(i.name, i.cat);
     });
   });
   return [...found.values()];
 }
 
-let editSugg = { take: false, bring: false };
+let editSugg = { take: false, bring: false, shared: false };
 
 function chipBlock(kind, title, list){
   if (!list.length && !editSugg[kind]) return "";
@@ -797,7 +811,8 @@ function chipBlock(kind, title, list){
     </div>
     <div class="chips">${list.map(c => editing
       ? `<span class="chip off">${esc(c.name)}<button data-act="dropSugg" data-kind="${kind}" data-name="${esc(c.name)}" aria-label="Remove ${esc(c.name)} from the list">&times;</button></span>`
-      : `<button class="chip" data-act="quick${kind === "take" ? "Take" : "Bring"}" data-name="${esc(c.name)}" data-cat="${esc(c.cat || "Other")}">${esc(c.name)}</button>`
+      : `<button class="chip" data-act="quick${kind === "bring" ? "Bring" : "Take"}" data-name="${esc(c.name)}" data-cat="${esc(c.cat || "Other")}"${
+            kind === "shared" ? ` data-who="${EVERYONE}"` : ""}>${esc(c.name)}</button>`
     ).join("")}${list.length ? "" : `<span class="count">Nothing suggested yet \u2014 anything you add to a trip turns up here next time.</span>`}</div>
   </div>`;
 }
@@ -857,7 +872,12 @@ function viewTake(t){
     }
   }
 
-  html += chipBlock("take", t.travellers.length ? `Things ${esc(user)} usually takes` : "Things you usually take", suggestions("take", mine.map(i => i.name)));
+  const onList = mine.map(i => i.name);
+  html += chipBlock("take", t.travellers.length ? `Things ${esc(user)} usually takes` : "Things you usually take",
+                    suggestions("take", onList));
+  if (t.travellers.length && isOwner()){
+    html += chipBlock("shared", "Shared items usually taken", suggestions("shared", onList));
+  }
   return html + tools();
 }
 
@@ -1298,7 +1318,9 @@ document.addEventListener("click", e => {
   if (a === "signout"){ user = ""; lsDel(UKEY); render(); return; }
   if (a === "export") return doExport();
   if (a === "import") return doImport();
-  if (a === "editSugg" || a === "dropSugg"){ if (!isOwner()) return refuse(); }
+  /* Packing suggestions are personal, so anyone may edit their own.
+     The bring-back list is shared, so it stays with the owner. */
+  if ((a === "editSugg" || a === "dropSugg") && b.dataset.kind !== "take" && !isOwner()) return refuse();
   if (a === "syncNow") return syncNow();
   if (a === "syncSet"){ if (!isOwner()) return refuse(); return openSync(); }
   if (a === "tglShowDone"){ showDone = !showDone; render(); return; }
@@ -1327,7 +1349,7 @@ document.addEventListener("click", e => {
       touch(t); break;   /* history comes from the trips themselves, per person */
     }
     case "quickTake": {
-      const who = t.travellers.length ? user : EVERYONE;
+      const who = b.dataset.who || (t.travellers.length ? user : EVERYONE);
       t.take.push({ id: uid(), name: b.dataset.name, cat: b.dataset.cat || "Other", who, packed: false, updatedAt: now() });
       touch(t); break;
     }
@@ -1380,7 +1402,8 @@ document.addEventListener("click", e => {
         S.hidden.bring = [...new Set([...(S.hidden.bring || []), name])];
         S.catBring = S.catBring.filter(c => c.name.toLowerCase() !== name);
       } else {
-        S.hidden.take[user] = [...new Set([...(S.hidden.take[user] || []), name])];
+        const slot = kind === "shared" ? SHARED : user;
+        S.hidden.take[slot] = [...new Set([...(S.hidden.take[slot] || []), name])];
       }
       save(); return render();
     }
@@ -1670,7 +1693,8 @@ document.getElementById("syncCancel").onclick = () => document.getElementById("s
 document.getElementById("syncSave").onclick = () => {
   const url = document.getElementById("s_url").value.trim();
   const code = document.getElementById("s_code").value.trim();
-  if (code && code.length < 8) return alert("Use a passphrase of at least 8 characters \u2014 it is the encryption key for your trips.");
+  if (code && code.length < 8) return notice("Passphrase too short",
+    "Use at least 8 characters \u2014 it is the encryption key for your trips, not just a login.");
   keyCache = { pass: null, key: null, room: null };
   SYNC.url = url; SYNC.code = code; SYNC.rev = 0; SYNC.note = "";
   lsSet("trips.syncUrl", url); lsSet("trips.syncCode", code); lsSet("trips.syncRev", "0");
@@ -1689,6 +1713,13 @@ document.getElementById("syncOff").onclick = () => {
 /* ---------- "are you sure?" ---------- */
 const askDlg = document.getElementById("askDlg");
 let askFn = null;
+
+function notice(title, detail){
+  document.getElementById("sayTitle").textContent = title;
+  document.getElementById("sayText").textContent = detail || "";
+  document.getElementById("sayDlg").showModal();
+}
+document.getElementById("sayOk").onclick = () => document.getElementById("sayDlg").close();
 
 function ask(what, detail, fn){
   document.getElementById("askTitle").textContent = what;
@@ -1855,7 +1886,7 @@ function doImport(){
         d = JSON.parse(r.result);
         if (!d || !Array.isArray(d.trips)) throw new Error("not a trips backup");
       }catch(err){
-        alert("That file isn't a trips backup — nothing has changed.");
+        notice("That file won't load", "It isn't a trips backup — nothing on this device has changed.");
         return;
       }
       normalise(d);
@@ -1872,7 +1903,7 @@ function doImport(){
       if (S.trips.length && !S.trips.some(t => t.id === S.activeTripId))
         S.activeTripId = S.trips[0].id;
       save(); render();
-      alert(`Loaded. ${S.trips.length} trip${S.trips.length === 1 ? "" : "s"} on this device.`);
+      notice("Backup loaded", `${S.trips.length} trip${S.trips.length === 1 ? "" : "s"} now on this device.`);
     };
     r.readAsText(f);
   };
