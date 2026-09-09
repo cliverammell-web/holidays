@@ -483,8 +483,9 @@ function blankStore(){
     catBring: SEED_BRING.map(name => ({ id: uid(), name })),
     catTodo:  SEED_TODO.map(([text, offset]) => ({ id: uid(), text, offset })),
     goneTrips: [],
-    hidden: { take: [], bring: [] },
+    hidden: { take: {}, bring: [] },
     seedsCleared: true,
+    seedsUnhidden: true,
     settings: { residence: "ES", outLimit: 183 },
     updatedAt: now()
   };
@@ -502,15 +503,24 @@ function normalise(s){
   });
   s.catTake = s.catTake || []; s.catBring = s.catBring || []; s.catTodo = s.catTodo || [];
   s.goneTrips = [...new Map((s.goneTrips || []).map(g => [g.id, g])).values()];
-  s.hidden = s.hidden || { take: [], bring: [] };   /* suggestions removed by hand */
-  s.hidden.take = s.hidden.take || []; s.hidden.bring = s.hidden.bring || [];
+  s.hidden = s.hidden || { take: {}, bring: [] };   /* suggestions removed by hand */
+  s.hidden.bring = s.hidden.bring || [];
+  /* take suggestions are personal, so the hidden list is keyed by person.
+     An older shared array becomes "*", meaning hidden for everybody. */
+  if (Array.isArray(s.hidden.take)) s.hidden.take = s.hidden.take.length ? { "*": s.hidden.take } : {};
+  s.hidden.take = s.hidden.take || {};
 
-  /* one-off: clear the bring-back suggestions this app used to ship with */
+  /* One-off: drop the bring-back suggestions this app used to ship with.
+     An earlier version also added them to the hidden list, which wrongly
+     suppressed those words for good — undo that. */
+  const SHIPPED = ["olive oil","turrón","turron","cheese","tea bags","marmite","books","presents","wine"];
   if (!s.seedsCleared){
-    const shipped = ["olive oil","turrón","turron","cheese","tea bags","marmite","books","presents","wine"];
-    s.catBring = (s.catBring || []).filter(c => !shipped.includes(c.name.toLowerCase()));
-    s.hidden.bring = [...new Set([...s.hidden.bring, ...shipped])];
+    s.catBring = (s.catBring || []).filter(c => !SHIPPED.includes(c.name.toLowerCase()));
     s.seedsCleared = true;
+  }
+  if (!s.seedsUnhidden){
+    s.hidden.bring = s.hidden.bring.filter(n => !SHIPPED.includes(n));
+    s.seedsUnhidden = true;
   }
   s.settings = Object.assign({ residence: "ES", outLimit: 183 }, s.settings || {});
   return s;
@@ -733,19 +743,34 @@ function render(){
 
 /* Suggestions are drawn from the remembered catalogue AND everything on any
    trip, past or planned, minus anything removed from the list by hand. */
+function hiddenSet(kind){
+  const list = kind === "bring"
+    ? (S.hidden.bring || [])
+    : [...(S.hidden.take["*"] || []), ...(S.hidden.take[user] || [])];
+  return new Set(list.map(x => x.toLowerCase()));
+}
+
 function suggestions(kind, exclude){
-  const hidden = new Set((S.hidden[kind] || []).map(x => x.toLowerCase()));
+  const hidden = hiddenSet(kind);
   const skip = new Set([...exclude].map(x => x.toLowerCase()));
   const found = new Map();
 
   const add = (name, cat) => {
-    const k = name.toLowerCase();
+    const k = (name || "").toLowerCase();
     if (!k || hidden.has(k) || skip.has(k) || found.has(k)) return;
     found.set(k, { name, cat: cat || "Other" });
   };
 
   (kind === "take" ? S.catTake : S.catBring).forEach(c => add(c.name, c.cat));
-  S.trips.forEach(t => (kind === "take" ? t.take : t.bring).forEach(i => add(i.name, i.cat)));
+
+  S.trips.forEach(t => {
+    if (kind === "bring") return t.bring.forEach(i => add(i.name));
+    /* Packing history is personal: your own items, plus the shared ones if
+       you're the person who manages them. */
+    t.take.forEach(i => {
+      if (i.who === user || (isOwner() && i.who === EVERYONE) || !t.travellers.length) add(i.name, i.cat);
+    });
+  });
   return [...found.values()];
 }
 
@@ -807,12 +832,10 @@ function viewTake(t){
       <span class="count">${packed} of ${mine.length} packed</span></div>
       <div class="jtrack" style="margin:0"><div class="jfill" style="width:${packed / mine.length * 100}%"></div></div></div>`;
 
-    TAKE_CATS.forEach(cat => {
-      const items = mine.filter(i => i.cat === cat);
-      if (!items.length) return;
-      const p = items.filter(i => i.packed).length;
+    {
+      const items = [...mine].sort((x, y) =>
+        (TAKE_CATS.indexOf(x.cat) - TAKE_CATS.indexOf(y.cat)) || x.name.localeCompare(y.name));
       html += `<div class="card">
-        <div class="cardhead"><h3>${cat}</h3><span class="count">${p}/${items.length}</span></div>
         <ul class="list">${items.map(i => `
           <li class="${i.packed ? "done" : ""}">
             <button class="chk" data-on="${i.packed ? 1 : 0}" data-act="tglTake" data-id="${i.id}"
@@ -821,10 +844,10 @@ function viewTake(t){
             <span class="txt">${esc(i.name)}${i.who === EVERYONE && t.travellers.length ? `<span class="sub">Shared</span>` : ""}</span>
             ${isOwner() || ownedByUser(i) ? `<button class="del" data-act="delTake" data-id="${i.id}" aria-label="Remove">&times;</button>` : ""}
           </li>`).join("")}</ul></div>`;
-    });
+    }
   }
 
-  html += chipBlock("take", "Things you usually take", suggestions("take", mine.map(i => i.name)));
+  html += chipBlock("take", t.travellers.length ? `Things ${esc(user)} usually takes` : "Things you usually take", suggestions("take", mine.map(i => i.name)));
   return html + tools();
 }
 
@@ -1245,7 +1268,6 @@ function tools(){
 }
 
 /* ---------- catalogue learning ---------- */
-const learnTake = (name, cat) => { if (!S.catTake.some(c => c.name.toLowerCase() === name.toLowerCase())) S.catTake.push({ id: uid(), name, cat }); };
 const learnBring = name => { if (!S.catBring.some(c => c.name.toLowerCase() === name.toLowerCase())) S.catBring.push({ id: uid(), name }); };
 const learnTodo = (text, offset) => { if (!S.catTodo.some(c => c.text.toLowerCase() === text.toLowerCase())) S.catTodo.push({ id: uid(), text, offset }); };
 
@@ -1292,7 +1314,7 @@ document.addEventListener("click", e => {
       const cat = document.getElementById("takeCat").value;
       const who = isOwner() ? document.getElementById("takeWho").value : user;
       t.take.push({ id: uid(), name, cat, who, packed: false, updatedAt: now() });
-      learnTake(name, cat); touch(t); break;
+      touch(t); break;   /* history comes from the trips themselves, per person */
     }
     case "quickTake": {
       const who = t.travellers.length ? user : EVERYONE;
@@ -1343,10 +1365,13 @@ document.addEventListener("click", e => {
     }
     case "editSugg": { editSugg[b.dataset.kind] = !editSugg[b.dataset.kind]; return render(); }
     case "dropSugg": {
-      const kind = b.dataset.kind, name = b.dataset.name;
-      S.hidden[kind] = [...new Set([...(S.hidden[kind] || []), name.toLowerCase()])];
-      const cat = kind === "take" ? "catTake" : "catBring";
-      S[cat] = S[cat].filter(c => c.name.toLowerCase() !== name.toLowerCase());
+      const kind = b.dataset.kind, name = b.dataset.name.toLowerCase();
+      if (kind === "bring"){
+        S.hidden.bring = [...new Set([...(S.hidden.bring || []), name])];
+        S.catBring = S.catBring.filter(c => c.name.toLowerCase() !== name);
+      } else {
+        S.hidden.take[user] = [...new Set([...(S.hidden.take[user] || []), name])];
+      }
       save(); return render();
     }
     case "pickDate": return openDate(id);
