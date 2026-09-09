@@ -1,7 +1,7 @@
 /* Trips — service worker
    Bump CACHE whenever you upload a new index.html, or browsers will keep
    serving the old one from the cache. */
-const CACHE = "trips-v10";
+const CACHE = "trips-v11";
 
 const SHELL = [
   "./",
