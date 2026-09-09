@@ -494,6 +494,7 @@ function blankStore(){
     catTodo:  SEED_TODO.map(([text, offset]) => ({ id: uid(), text, offset })),
     goneTrips: [],
     hidden: { take: {}, bring: [] },
+    learned: {},
     seedsCleared: true,
     seedsUnhidden: true,
     catTakeReset: true,
@@ -520,6 +521,7 @@ function normalise(s){
      An older shared array becomes "*", meaning hidden for everybody. */
   if (Array.isArray(s.hidden.take)) s.hidden.take = s.hidden.take.length ? { "*": s.hidden.take } : {};
   s.hidden.take = s.hidden.take || {};
+  s.learned = s.learned || {};      /* items typed in, kept per person: { Clive: [{name,cat}] } */
 
   /* One-off: drop the bring-back suggestions this app used to ship with.
      An earlier version also added them to the hidden list, which wrongly
@@ -766,6 +768,11 @@ function render(){
    trip, past or planned, minus anything removed from the list by hand. */
 const SHARED = "__shared";
 
+function remember(slot, name, cat){
+  const list = S.learned[slot] = S.learned[slot] || [];
+  if (!list.some(c => c.name.toLowerCase() === name.toLowerCase())) list.push({ name, cat: cat || "Other" });
+}
+
 function hiddenSet(kind){
   const list = kind === "bring"  ? (S.hidden.bring || [])
              : kind === "shared" ? [...(S.hidden.take["*"] || []), ...(S.hidden.take[SHARED] || [])]
@@ -784,7 +791,11 @@ function suggestions(kind, exclude){
     found.set(k, { name, cat: cat || "Other" });
   };
 
-  if (kind === "take") S.catTake.forEach(c => add(c.name, c.cat));
+  if (kind === "take"){
+    S.catTake.forEach(c => add(c.name, c.cat));
+    (S.learned[user] || []).forEach(c => add(c.name, c.cat));
+  }
+  if (kind === "shared") (S.learned[SHARED] || []).forEach(c => add(c.name, c.cat));
   if (kind === "bring") S.catBring.forEach(c => add(c.name, c.cat));
 
   S.trips.forEach(t => {
@@ -801,7 +812,6 @@ function suggestions(kind, exclude){
 let editSugg = { take: false, bring: false, shared: false };
 
 function chipBlock(kind, title, list){
-  if (!list.length && !editSugg[kind]) return "";
   const editing = editSugg[kind];
   return `<div class="card">
     <div class="chiphead" style="display:flex;justify-content:space-between;align-items:center;padding-right:12px">
@@ -813,7 +823,8 @@ function chipBlock(kind, title, list){
       ? `<span class="chip off">${esc(c.name)}<button data-act="dropSugg" data-kind="${kind}" data-name="${esc(c.name)}" aria-label="Remove ${esc(c.name)} from the list">&times;</button></span>`
       : `<button class="chip" data-act="quick${kind === "bring" ? "Bring" : "Take"}" data-name="${esc(c.name)}" data-cat="${esc(c.cat || "Other")}"${
             kind === "shared" ? ` data-who="${EVERYONE}"` : ""}>${esc(c.name)}</button>`
-    ).join("")}${list.length ? "" : `<span class="count">Nothing suggested yet \u2014 anything you add to a trip turns up here next time.</span>`}</div>
+    ).join("")}${list.length ? "" : `<span class="count">Nothing to suggest \u2014 either it's all on this trip already, or you've cleared the list. Anything you add to a trip turns up here next time.</span>`}
+      ${editing && list.length ? `<button class="chip" data-act="dropAll" data-kind="${kind}" style="border-color:var(--warn);color:var(--warn)">Clear the whole list</button>` : ""}</div>
   </div>`;
 }
 
@@ -1346,7 +1357,8 @@ document.addEventListener("click", e => {
       const cat = document.getElementById("takeCat").value;
       const who = isOwner() ? document.getElementById("takeWho").value : user;
       t.take.push({ id: uid(), name, cat, who, packed: false, updatedAt: now() });
-      touch(t); break;   /* history comes from the trips themselves, per person */
+      remember(who === EVERYONE ? SHARED : who, name, cat);
+      touch(t); break;
     }
     case "quickTake": {
       const who = b.dataset.who || (t.travellers.length ? user : EVERYONE);
@@ -1396,6 +1408,26 @@ document.addEventListener("click", e => {
       return;
     }
     case "editSugg": { editSugg[b.dataset.kind] = !editSugg[b.dataset.kind]; return render(); }
+    case "dropAll": {
+      const kind = b.dataset.kind;
+      const all = suggestions(kind, []).map(c => c.name);
+      if (!all.length) return;
+      return ask("Clear this whole list?",
+        `All ${all.length} suggestions go, including any the app came with. Nothing on your actual trips is touched, and anything you add from now on starts the list again.`,
+        () => {
+          const names = all.map(n => n.toLowerCase());
+          if (kind === "bring"){
+            S.hidden.bring = [...new Set([...(S.hidden.bring || []), ...names])];
+            S.catBring = [];
+          } else {
+            const slot = kind === "shared" ? SHARED : user;
+            S.hidden.take[slot] = [...new Set([...(S.hidden.take[slot] || []), ...names])];
+            if (kind === "take") S.catTake = [];      /* the shipped starter items go too */
+            S.learned[slot] = [];
+          }
+          save(); render();
+        });
+    }
     case "dropSugg": {
       const kind = b.dataset.kind, name = b.dataset.name.toLowerCase();
       if (kind === "bring"){
