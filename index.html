@@ -222,6 +222,8 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px dashed var(--line)}
 .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;color:var(--ink)}
 .chip:active{background:var(--accent-soft);border-color:var(--accent)}
+.chip.off{display:inline-flex;align-items:center;gap:7px;background:#F5F8FB;color:var(--muted)}
+.chip.off button{border:0;background:none;color:var(--warn);font-size:16px;line-height:1;padding:0;cursor:pointer}
 .chiphead{font-size:12.5px;color:var(--muted);padding:10px 12px 0}
 
 .empty{padding:22px 14px;text-align:center;color:var(--muted);font-size:14.5px}
@@ -437,7 +439,7 @@ const SEED_TAKE = [
   ["Lead and harness","Pet"],["Food and bowls","Pet"],["Vaccination record","Pet"],
   ["Sunglasses","Other"],["Umbrella","Other"],["Cash","Other"]
 ];
-const SEED_BRING = ["Olive oil","Turrón","Cheese","Tea bags","Marmite","Books","Presents","Wine"];
+const SEED_BRING = [];      /* the bring-back list is yours to build */
 const SEED_TODO = [
   ["Check passports are still in date", -90],
   ["Sort travel insurance", -45],
@@ -481,6 +483,8 @@ function blankStore(){
     catBring: SEED_BRING.map(name => ({ id: uid(), name })),
     catTodo:  SEED_TODO.map(([text, offset]) => ({ id: uid(), text, offset })),
     goneTrips: [],
+    hidden: { take: [], bring: [] },
+    seedsCleared: true,
     settings: { residence: "ES", outLimit: 183 },
     updatedAt: now()
   };
@@ -497,6 +501,16 @@ function normalise(s){
   });
   s.catTake = s.catTake || []; s.catBring = s.catBring || []; s.catTodo = s.catTodo || [];
   s.goneTrips = s.goneTrips || [];              /* trips deleted here, so sync can't revive them */
+  s.hidden = s.hidden || { take: [], bring: [] };   /* suggestions removed by hand */
+  s.hidden.take = s.hidden.take || []; s.hidden.bring = s.hidden.bring || [];
+
+  /* one-off: clear the bring-back suggestions this app used to ship with */
+  if (!s.seedsCleared){
+    const shipped = ["olive oil","turrón","turron","cheese","tea bags","marmite","books","presents","wine"];
+    s.catBring = (s.catBring || []).filter(c => !shipped.includes(c.name.toLowerCase()));
+    s.hidden.bring = [...new Set([...s.hidden.bring, ...shipped])];
+    s.seedsCleared = true;
+  }
   s.settings = Object.assign({ residence: "ES", outLimit: 183 }, s.settings || {});
   return s;
 }
@@ -716,6 +730,42 @@ function render(){
   if (tab === "days")  v.innerHTML = viewDays();
 }
 
+/* Suggestions are drawn from the remembered catalogue AND everything on any
+   trip, past or planned, minus anything removed from the list by hand. */
+function suggestions(kind, exclude){
+  const hidden = new Set((S.hidden[kind] || []).map(x => x.toLowerCase()));
+  const skip = new Set([...exclude].map(x => x.toLowerCase()));
+  const found = new Map();
+
+  const add = (name, cat) => {
+    const k = name.toLowerCase();
+    if (!k || hidden.has(k) || skip.has(k) || found.has(k)) return;
+    found.set(k, { name, cat: cat || "Other" });
+  };
+
+  (kind === "take" ? S.catTake : S.catBring).forEach(c => add(c.name, c.cat));
+  S.trips.forEach(t => (kind === "take" ? t.take : t.bring).forEach(i => add(i.name, i.cat)));
+  return [...found.values()];
+}
+
+let editSugg = { take: false, bring: false };
+
+function chipBlock(kind, title, list){
+  if (!list.length && !editSugg[kind]) return "";
+  const editing = editSugg[kind];
+  return `<div class="card">
+    <div class="chiphead" style="display:flex;justify-content:space-between;align-items:center;padding-right:12px">
+      <span>${title}</span>
+      <button class="chip" data-act="editSugg" data-kind="${kind}" style="padding:3px 9px;font-size:12px">${
+        editing ? "Done" : "Edit list"}</button>
+    </div>
+    <div class="chips">${list.map(c => editing
+      ? `<span class="chip off">${esc(c.name)}<button data-act="dropSugg" data-kind="${kind}" data-name="${esc(c.name)}" aria-label="Remove ${esc(c.name)} from the list">&times;</button></span>`
+      : `<button class="chip" data-act="quick${kind === "take" ? "Take" : "Bring"}" data-name="${esc(c.name)}" data-cat="${esc(c.cat || "Other")}">${esc(c.name)}</button>`
+    ).join("")}${list.length ? "" : `<span class="count">Nothing suggested yet \u2014 anything you add to a trip turns up here next time.</span>`}</div>
+  </div>`;
+}
+
 /* ---------- To take (per person) ---------- */
 function ownerOptions(selected){
   const list = [EVERYONE, ...travellers()];
@@ -773,12 +823,7 @@ function viewTake(t){
     });
   }
 
-  const onList = new Set(mine.map(i => i.name.toLowerCase()));
-  const sugg = S.catTake.filter(c => !onList.has(c.name.toLowerCase())).slice(0, 30);
-  if (sugg.length){
-    html += `<div class="card"><div class="chiphead">Things you usually take</div>
-      <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickTake" data-id="${c.id}">${esc(c.name)}</button>`).join("")}</div></div>`;
-  }
+  html += chipBlock("take", "Things you usually take", suggestions("take", mine.map(i => i.name)));
   return html + tools();
 }
 
@@ -809,12 +854,7 @@ function viewBring(t){
         </li>`).join("")}</ul></div>`;
   }
 
-  const onList = new Set(t.bring.map(i => i.name.toLowerCase()));
-  const sugg = RO ? [] : S.catBring.filter(c => !onList.has(c.name.toLowerCase())).slice(0, 30);
-  if (sugg.length){
-    html += `<div class="card"><div class="chiphead">Things you usually bring back</div>
-      <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickBring" data-id="${c.id}">${esc(c.name)}</button>`).join("")}</div></div>`;
-  }
+  if (!RO) html += chipBlock("bring", "Things you usually bring back", suggestions("bring", t.bring.map(i => i.name)));
   return html + tools();
 }
 
@@ -1225,6 +1265,7 @@ document.addEventListener("click", e => {
   if (a === "signout"){ user = ""; lsDel(UKEY); render(); return; }
   if (a === "export") return doExport();
   if (a === "import") return doImport();
+  if (a === "editSugg" || a === "dropSugg"){ if (!isOwner()) return refuse(); }
   if (a === "syncNow") return syncNow();
   if (a === "syncSet"){ if (!isOwner()) return refuse(); return openSync(); }
   if (a === "tglShowDone"){ showDone = !showDone; render(); return; }
@@ -1253,9 +1294,8 @@ document.addEventListener("click", e => {
       learnTake(name, cat); touch(t); break;
     }
     case "quickTake": {
-      const c = S.catTake.find(x => x.id === id); if (!c) return;
       const who = t.travellers.length ? user : EVERYONE;
-      t.take.push({ id: uid(), name: c.name, cat: c.cat, who, packed: false, updatedAt: now() });
+      t.take.push({ id: uid(), name: b.dataset.name, cat: b.dataset.cat || "Other", who, packed: false, updatedAt: now() });
       touch(t); break;
     }
     case "tglTake": { const i = t.take.find(x => x.id === id); i.packed = !i.packed; touch(i); touch(t); break; }
@@ -1272,8 +1312,7 @@ document.addEventListener("click", e => {
       learnBring(name); touch(t); break;
     }
     case "quickBring": {
-      const c = S.catBring.find(x => x.id === id); if (!c) return;
-      t.bring.push({ id: uid(), name: c.name, who: "", got: false, note: "", updatedAt: now() });
+      t.bring.push({ id: uid(), name: b.dataset.name, who: "", got: false, note: "", updatedAt: now() });
       touch(t); break;
     }
     case "tglBring": { const i = t.bring.find(x => x.id === id); i.got = !i.got; touch(i); touch(t); break; }
@@ -1300,6 +1339,14 @@ document.addEventListener("click", e => {
       t.todo.push(item); touch(t);
       save(); render(); openDate(item.id);
       return;
+    }
+    case "editSugg": { editSugg[b.dataset.kind] = !editSugg[b.dataset.kind]; return render(); }
+    case "dropSugg": {
+      const kind = b.dataset.kind, name = b.dataset.name;
+      S.hidden[kind] = [...new Set([...(S.hidden[kind] || []), name.toLowerCase()])];
+      const cat = kind === "take" ? "catTake" : "catBring";
+      S[cat] = S[cat].filter(c => c.name.toLowerCase() !== name.toLowerCase());
+      save(); return render();
     }
     case "pickDate": return openDate(id);
     case "newBook":  return openBook(null);
