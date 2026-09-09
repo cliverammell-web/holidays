@@ -772,6 +772,26 @@ function render(){
    trip, past or planned, minus anything removed from the list by hand. */
 const SHARED = "__shared";
 
+/* Putting an item on a trip means you want it back, even if the suggestion was
+   removed before. Clears it from that person's hidden list. An entry hidden for
+   everyone ("*", left by an older version) is moved to the other people's own
+   lists so their choices are untouched. */
+function unhide(slot, name){
+  const key = name.toLowerCase();
+  const H = S.hidden.take;
+  if (H[slot]) H[slot] = H[slot].filter(n => n !== key);
+
+  if ((H["*"] || []).includes(key)){
+    H["*"] = H["*"].filter(n => n !== key);
+    const people = new Set([SHARED]);
+    S.trips.forEach(t => (t.travellers || []).forEach(p => people.add(p)));
+    people.forEach(p => {
+      if (p === slot) return;
+      H[p] = [...new Set([...(H[p] || []), key])];
+    });
+  }
+}
+
 function remember(slot, name, cat){
   const list = S.learned[slot] = S.learned[slot] || [];
   if (!list.some(c => c.name.toLowerCase() === name.toLowerCase())) list.push({ name, cat: cat || "Other" });
@@ -1361,7 +1381,9 @@ document.addEventListener("click", e => {
       const cat = document.getElementById("takeCat").value;
       const who = isOwner() ? document.getElementById("takeWho").value : user;
       t.take.push({ id: uid(), name, cat, who, packed: false, updatedAt: now() });
-      remember(who === EVERYONE ? SHARED : who, name, cat);
+      const slot = who === EVERYONE ? SHARED : who;
+      unhide(slot, name);
+      remember(slot, name, cat);
       touch(t); break;
     }
     case "quickTake": {
@@ -1380,6 +1402,7 @@ document.addEventListener("click", e => {
     case "addBring": {
       const name = val("bringIn"); if (!name) return;
       t.bring.push({ id: uid(), name, who: "", got: false, note: "", updatedAt: now() });
+      S.hidden.bring = (S.hidden.bring || []).filter(n => n !== name.toLowerCase());
       learnBring(name); touch(t); break;
     }
     case "quickBring": {
