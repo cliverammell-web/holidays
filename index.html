@@ -496,7 +496,7 @@ function blankStore(){
     catBring: SEED_BRING.map(name => ({ id: uid(), name })),
     catTodo:  SEED_TODO.map(([text, offset]) => ({ id: uid(), text, offset })),
     goneTrips: [],
-    hidden: { take: {}, bring: [] },
+    hidden: { take: {}, bring: [], todo: [] },
     learned: {},
     seedsCleared: true,
     seedsUnhidden: true,
@@ -520,6 +520,7 @@ function normalise(s){
   s.goneTrips = [...new Map((s.goneTrips || []).map(g => [g.id, g])).values()];
   s.hidden = s.hidden || { take: {}, bring: [] };   /* suggestions removed by hand */
   s.hidden.bring = s.hidden.bring || [];
+  s.hidden.todo = s.hidden.todo || [];
   /* take suggestions are personal, so the hidden list is keyed by person.
      An older shared array becomes "*", meaning hidden for everybody. */
   if (Array.isArray(s.hidden.take)) s.hidden.take = s.hidden.take.length ? { "*": s.hidden.take } : {};
@@ -798,7 +799,8 @@ function remember(slot, name, cat){
 }
 
 function hiddenSet(kind){
-  const list = kind === "bring"  ? (S.hidden.bring || [])
+  const list = kind === "todo"   ? (S.hidden.todo || [])
+             : kind === "bring"  ? (S.hidden.bring || [])
              : kind === "shared" ? [...(S.hidden.take["*"] || []), ...(S.hidden.take[SHARED] || [])]
              : [...(S.hidden.take["*"] || []), ...(S.hidden.take[user] || [])];
   return new Set(list.map(x => x.toLowerCase()));
@@ -809,10 +811,10 @@ function suggestions(kind, exclude){
   const skip = new Set([...exclude].map(x => x.toLowerCase()));
   const found = new Map();
 
-  const add = (name, cat) => {
+  const add = (name, cat, offset) => {
     const k = (name || "").toLowerCase();
     if (!k || hidden.has(k) || skip.has(k) || found.has(k)) return;
-    found.set(k, { name, cat: cat || "Other" });
+    found.set(k, { name, cat: cat || "Other", offset });
   };
 
   if (kind === "take"){
@@ -821,8 +823,13 @@ function suggestions(kind, exclude){
   }
   if (kind === "shared") (S.learned[SHARED] || []).forEach(c => add(c.name, c.cat));
   if (kind === "bring") S.catBring.forEach(c => add(c.name, c.cat));
+  if (kind === "todo"){
+    S.catTodo.forEach(c => add(c.text, null, c.offset));
+    S.trips.forEach(t => t.todo.forEach(i => add(i.text, null, i.offset)));
+  }
 
   S.trips.forEach(t => {
+    if (kind === "todo") return;
     if (kind === "bring") return t.bring.forEach(i => add(i.name));
     t.take.forEach(i => {
       /* Shared items get their own list. Personal history stays personal. */
@@ -833,9 +840,9 @@ function suggestions(kind, exclude){
   return [...found.values()];
 }
 
-let editSugg = { take: false, bring: false, shared: false };
+let editSugg = { take: false, bring: false, shared: false, todo: false };
 
-function chipBlock(kind, title, list){
+function chipBlock(kind, title, list, extra){
   const editing = editSugg[kind];
   return `<div class="card">
     <div class="chiphead" style="display:flex;justify-content:space-between;align-items:center;padding-right:12px">
@@ -845,10 +852,12 @@ function chipBlock(kind, title, list){
     </div>
     <div class="chips">${list.map(c => editing
       ? `<span class="chip off">${esc(c.name)}<button data-act="dropSugg" data-kind="${kind}" data-name="${esc(c.name)}" aria-label="Remove ${esc(c.name)} from the list">&times;</button></span>`
-      : `<button class="chip" data-act="quick${kind === "bring" ? "Bring" : "Take"}" data-name="${esc(c.name)}" data-cat="${esc(c.cat || "Other")}"${
+      : `<button class="chip" data-act="quick${kind === "bring" ? "Bring" : kind === "todo" ? "Todo" : "Take"}" data-name="${esc(c.name)}" data-cat="${esc(c.cat || "Other")}"${
+            c.offset !== undefined ? ` data-offset="${c.offset}"` : ""}${
             kind === "shared" ? ` data-who="${EVERYONE}"` : ""}>${esc(c.name)}</button>`
     ).join("")}${list.length ? "" : `<span class="count">Nothing to suggest \u2014 either it's all on this trip already, or you've cleared the list. Anything you add to a trip turns up here next time.</span>`}
-      ${editing && list.length ? `<button class="chip" data-act="dropAll" data-kind="${kind}" style="border-color:var(--warn);color:var(--warn)">Clear the whole list</button>` : ""}</div>
+      ${editing && list.length ? `<button class="chip" data-act="dropAll" data-kind="${kind}" style="border-color:var(--warn);color:var(--warn)">Clear the whole list</button>` : ""}
+      ${!editing && extra ? extra : ""}</div>
   </div>`;
 }
 
@@ -1009,12 +1018,10 @@ function viewTodo(t){
       ${showDone ? `<ul class="list">${done.map(i => todoRow(t, i)).join("")}</ul>` : ""}</div>`;
   }
 
-  const onList = new Set(t.todo.map(i => i.text.toLowerCase()));
-  const sugg = RO ? [] : S.catTodo.filter(c => !onList.has(c.text.toLowerCase()));
-  if (sugg.length){
-    html += `<div class="card"><div class="chiphead">Your usual jobs — tap one and pick its date</div>
-      <div class="chips">${sugg.map(c => `<button class="chip" data-act="quickTodo" data-id="${c.id}">${esc(c.text)}</button>`).join("")}
-        <button class="chip" data-act="allTodo" style="border-color:var(--accent);color:var(--accent)">Add all, dates as usual</button></div></div>`;
+  if (!RO){
+    html += chipBlock("todo", "Your usual jobs — tap one and pick its date",
+      suggestions("todo", t.todo.map(i => i.text)),
+      `<button class="chip" data-act="allTodo" style="border-color:var(--accent);color:var(--accent)">Add all, dates as usual</button>`);
   }
   return html + tools();
 }
@@ -1422,14 +1429,16 @@ document.addEventListener("click", e => {
       const known = S.catTodo.find(x => x.text.toLowerCase() === text.toLowerCase());
       const offset = known ? known.offset : -7;
       const item = { id: uid(), text, offset, done: false, updatedAt: now() };
+      S.hidden.todo = (S.hidden.todo || []).filter(n => n !== text.toLowerCase());
       t.todo.push(item); learnTodo(text, offset); touch(t);
       save(); render(); openDate(item.id);
       document.getElementById("todoIn").value = "";
       return;
     }
     case "quickTodo": {
-      const c = S.catTodo.find(x => x.id === id); if (!c) return;
-      const item = { id: uid(), text: c.text, offset: c.offset, done: false, updatedAt: now() };
+      const item = { id: uid(), text: b.dataset.name,
+                     offset: b.dataset.offset === undefined ? -7 : Number(b.dataset.offset),
+                     done: false, updatedAt: now() };
       t.todo.push(item); touch(t);
       save(); render(); openDate(item.id);
       return;
@@ -1443,7 +1452,10 @@ document.addEventListener("click", e => {
         `All ${all.length} suggestions go, including any the app came with. Nothing on your actual trips is touched, and anything you add from now on starts the list again.`,
         () => {
           const names = all.map(n => n.toLowerCase());
-          if (kind === "bring"){
+          if (kind === "todo"){
+            S.hidden.todo = [...new Set([...(S.hidden.todo || []), ...names])];
+            S.catTodo = [];
+          } else if (kind === "bring"){
             S.hidden.bring = [...new Set([...(S.hidden.bring || []), ...names])];
             S.catBring = [];
           } else {
@@ -1457,7 +1469,10 @@ document.addEventListener("click", e => {
     }
     case "dropSugg": {
       const kind = b.dataset.kind, name = b.dataset.name.toLowerCase();
-      if (kind === "bring"){
+      if (kind === "todo"){
+        S.hidden.todo = [...new Set([...(S.hidden.todo || []), name])];
+        S.catTodo = S.catTodo.filter(c => c.text.toLowerCase() !== name);
+      } else if (kind === "bring"){
         S.hidden.bring = [...new Set([...(S.hidden.bring || []), name])];
         S.catBring = S.catBring.filter(c => c.name.toLowerCase() !== name);
       } else {
@@ -1471,9 +1486,8 @@ document.addEventListener("click", e => {
     case "editBook": return openBook(id);
     case "editPlan": return openPlan(b.dataset.date);
     case "allTodo": {
-      const on = new Set(t.todo.map(i => i.text.toLowerCase()));
-      S.catTodo.filter(c => !on.has(c.text.toLowerCase())).forEach(c =>
-        t.todo.push({ id: uid(), text: c.text, offset: c.offset, done: false, updatedAt: now() }));
+      suggestions("todo", t.todo.map(i => i.text)).forEach(c =>
+        t.todo.push({ id: uid(), text: c.name, offset: c.offset ?? -7, done: false, updatedAt: now() }));
       touch(t); break;
     }
     case "tglTodo": { const i = t.todo.find(x => x.id === id); i.done = !i.done; touch(i); touch(t); break; }
