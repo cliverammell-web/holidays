@@ -368,7 +368,7 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
       <div class="field"><label for="b_start">From</label><input id="b_start" type="date"></div>
       <div class="field"><label for="b_time">Time</label><input id="b_time" type="time"></div>
     </div>
-    <div class="field"><label for="b_end">Until (leave blank for a single day)</label><input id="b_end" type="date"></div>
+    <div class="field"><label for="b_end">Until (clear it for a single day)</label><input id="b_end" type="date"></div>
     <div class="row2">
       <div class="field"><label for="b_cost">Total cost</label><input id="b_cost" type="number" step="0.01" inputmode="decimal"></div>
       <div class="field"><label for="b_cur">Currency</label><select id="b_cur"><option>EUR</option><option>GBP</option><option>USD</option></select></div>
@@ -1811,6 +1811,7 @@ function openBook(id){
   b_start.value = b ? b.start || "" : (t.depart || "");
   b_time.value  = b ? b.time || "" : "";
   b_end.value   = b ? b.end || "" : "";
+  b_end.min     = b_start.value || "";
   b_cost.value  = b ? b.cost ?? "" : "";
   b_cur.value   = b ? b.cur || "EUR" : "EUR";
   b_paid.value  = b ? b.paid || "none" : "none";
@@ -1820,6 +1821,24 @@ function openBook(id){
   document.getElementById("bookDelete").style.display = b ? "" : "none";
   bookDlg.showModal();
 }
+
+/* The native date picker opens on whatever month the field already holds, so
+   seed "Until" from "From" the moment it's touched. Clear it again for a
+   single-day booking. */
+function alignEnd(){
+  const from = document.getElementById("b_start").value;
+  const end = document.getElementById("b_end");
+  end.min = from || "";
+  if (from && !end.value) end.value = from;
+}
+document.getElementById("b_end").addEventListener("focus", alignEnd);
+document.getElementById("b_end").addEventListener("click", alignEnd);
+document.getElementById("b_start").addEventListener("change", () => {
+  const from = document.getElementById("b_start").value;
+  const end = document.getElementById("b_end");
+  end.min = from || "";
+  if (from && end.value && end.value < from) end.value = from;   /* never ends before it starts */
+});
 
 document.getElementById("bookCancel").onclick = () => bookDlg.close();
 
@@ -1886,13 +1905,33 @@ function openTrip(t){
   document.getElementById("dlgTitle").textContent = t ? "Edit trip" : "New trip";
   f_name.value = t ? t.name : "";
   f_dest.value = t ? t.dest : "";
-  f_dep.value  = t ? t.depart : "";
+  /* Entering a run of past trips: start each new one near the last one you
+     added, so the picker opens in roughly the right place. */
+  const recent = [...S.trips].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0];
+  f_dep.value  = t ? t.depart : (recent && recent.depart ? recent.depart : "");
   f_ret.value  = t ? t.ret : "";
+  f_ret.min    = f_dep.value || "";
   f_trav.value = t ? (t.travellers || []).join(", ") : "";
   f_zone.value = t ? (t.zone || "schengen") : "schengen";
   document.getElementById("dlgDelete").style.display = t ? "" : "none";
   dlg.showModal();
 }
+/* Coming back opens on the leaving month rather than today */
+function alignReturn(){
+  const dep = document.getElementById("f_dep").value;
+  const ret = document.getElementById("f_ret");
+  ret.min = dep || "";
+  if (dep && !ret.value) ret.value = dep;
+}
+document.getElementById("f_ret").addEventListener("focus", alignReturn);
+document.getElementById("f_ret").addEventListener("click", alignReturn);
+document.getElementById("f_dep").addEventListener("change", () => {
+  const dep = document.getElementById("f_dep").value;
+  const ret = document.getElementById("f_ret");
+  ret.min = dep || "";
+  if (dep && ret.value && ret.value < dep) ret.value = dep;
+});
+
 document.getElementById("newTrip").onclick = () => openTrip(null);
 document.getElementById("editTrip").onclick = () => { if (trip()) openTrip(trip()); };
 
