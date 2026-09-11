@@ -1297,7 +1297,7 @@ function viewDays(){
         <div class="splitkey">
           <span><b>${home}</b> days in Spain</span>
           <span><b>${out}</b> away</span>
-          <span>${home >= 183 ? "above" : "below"} the 183 mark</span>
+          <span>${out >= 183 ? "above" : "below"} the 183 mark</span>
         </div>
         <div class="sum">${total}${inYear.length ? " \u2212 " + inYear.join(" \u2212 ") : ""} = ${home}</div>
         <div class="room ${room < 0 ? "gone" : ""}">${
@@ -1308,9 +1308,9 @@ function viewDays(){
     </div>
     <p class="count">Every dated trip counts, whether it has happened yet or not, so a trip booked
        for December is already in this year's figures. Dark blue is time in Spain, pale blue is
-       time away. The red line sits at 183 days. Staying to the right of it is the normal position for a resident here — spending
-       <em>more</em> than 183 days in Spain is what makes you tax resident, so a bar reaching past
-       the line is expected, not a warning.</p>
+       time away, and the red line sits at 183 days. The note on the right refers to the pale
+       blue — while time away stays below the mark you have spent more than half the year in
+       Spain, which is the normal position for a resident here.</p>
     <p class="count">A rough count: it assumes every day not on a listed trip was spent in Spain,
        so years where you have entered no trips will read as a full year at home. Tax residency
        does not turn on the day count alone — where your main economic interests and family sit
