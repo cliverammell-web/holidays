@@ -108,7 +108,9 @@ header{
 .tl-plan{background:#CFE2F3;border-radius:999px 0 0 999px}
 .tl-trip{background:var(--accent);border-radius:0 999px 999px 0}
 .tl-tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--accent);transform:translateX(-1px)}
-.tl .jdot{top:-2px;border-color:var(--card)}
+/* white fill with a navy ring reads on both the pale and the dark segment */
+.tl .jdot{top:-2px;width:11px;height:11px;background:#fff;border:2px solid var(--accent);
+  box-shadow:0 0 0 1px rgba(255,255,255,.9);transform:translateX(-5.5px)}
 .tlkey{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
 .jfill{position:absolute;left:0;top:0;height:2px;background:var(--accent-hi)}
 .jdot{position:absolute;top:-4px;width:10px;height:10px;border-radius:50%;
@@ -198,6 +200,13 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
 .tot:last-child{border-bottom:0}
 .tot b{font-variant-numeric:tabular-nums}
 .tot.big{font-size:17px;font-weight:600;background:#F3F9FE}
+.bars{padding:10px 12px 12px;border-top:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
+.bar:last-child{margin-bottom:0}
+.bl{flex:0 0 84px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt{flex:1;min-width:0;height:12px;background:#EDF4FB;border-radius:3px;overflow:hidden}
+.bt i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.bv{flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--ink)}
 .gauge{height:9px;border-radius:999px;background:var(--line);overflow:hidden;margin:9px 12px}
 .gauge i{display:block;height:100%;background:var(--accent-hi)}
 .gauge i.over{background:var(--warn)}
@@ -1165,6 +1174,29 @@ function viewPlan(t){
 /* ============================================================
    Money
    ============================================================ */
+
+/* Where the money goes, by type of booking. One hue in varying strength rather
+   than seven colours — it stays readable and doesn't fight the rest of the app. */
+function costBars(bookings, total, cur){
+  if (!total) return "";
+  const byType = BTYPES.map(t => ({
+    type: t,
+    sum: bookings.filter(b => b.type === t).reduce((n, b) => n + Number(b.cost || 0), 0)
+  })).filter(x => x.sum > 0).sort((a, b) => b.sum - a.sum);
+
+  if (byType.length < 2) return "";          /* one category is just the total again */
+  const top = byType[0].sum;
+
+  return `<div class="bars">
+    ${byType.map((x, n) => `
+      <div class="bar">
+        <span class="bl">${esc(x.type)}</span>
+        <span class="bt"><i style="width:${x.sum / top * 100}%;opacity:${(1 - n * 0.11).toFixed(2)}"></i></span>
+        <span class="bv">${money(x.sum, cur)}</span>
+      </div>`).join("")}
+  </div>`;
+}
+
 function viewMoney(t){
   if (!t.bookings.length) return `<div class="card"><div class="empty"><b>Nothing to add up yet</b>
     Costs entered against bookings are totalled here.</div></div>` + tools();
@@ -1180,7 +1212,7 @@ function viewMoney(t){
       <div class="tot big"><span>Total cost</span><b>${money(total, cur)}</b></div>
       <div class="tot"><span>Paid so far</span><b>${money(paid, cur)}</b></div>
       <div class="tot"><span>Still to pay</span><b>${money(total - paid, cur)}</b></div>
-
+      ${costBars(bs, total, cur)}
     </div>`;
   });
 
