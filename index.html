@@ -1238,7 +1238,6 @@ function viewDays(){
       <div class="tot big"><span>Used in the last 180 days</span><b>${usedNow}</b></div>
       ${gauge(usedNow, 90)}
       <div class="tot"><span>Left to use today</span><b>${Math.max(0, 90 - usedNow)}</b></div>
-      <div class="tot"><span>Worst point across all your trips</span><b>${peak}${when ? " on " + fmt(when) : ""}</b></div>
       ${peak > 90 ? `<div class="tot" style="color:var(--warn)"><span>Over the limit</span><b>by ${peak - 90} days</b></div>` : ""}
     </div>
     <p class="count">Counts every trip marked as inside the Schengen area, with the day you
@@ -1261,20 +1260,12 @@ function viewDays(){
       ${gauge(longest, FIVE)}
       <div class="tot"><span>That is</span><b>${months} months</b></div>
       ${longestFrom ? `<div class="tot"><span>Starting</span><b>${fmt(longestFrom)}</b></div>` : ""}
-      <div class="tot"><span>Would need to reach</span><b>1,826 days</b></div>
     </div>
-    <p class="count"><b>This is not a running total.</b> Article 15(3) of the Withdrawal Agreement
-       says permanent residence is lost only through absence for a period exceeding five
-       <em>consecutive</em> years. It is not days added up over a rolling five years, and not
-       calendar years either \u2014 every return to Spain puts the clock back to zero. Ten separate
-       six-month trips come to nothing; one unbroken stretch of five years and a day is what
-       matters. Consecutive trips with no gap between them are counted here as one absence.</p>
-    <p class="count">Two rules that look similar but do not apply to you: the 10-months-in-5-years
-       limit governs <em>acquiring</em> permanent residency and excludes UK nationals covered by the
-       Agreement, and the six-months-a-year rule concerns the qualifying period rather than status
-       already held. One grey area remains: Spain has not defined what counts as a "return", so a
-       very long absence broken only by a brief visit is not settled ground.</p>
+    <p class="count"><b>This is not a running total.</b> One grey area remains: Spain has not
+       defined what counts as a "return", so a very long absence broken only by a brief visit is
+       not settled ground.</p>
 
+    <h3 style="margin:20px 0 10px;font-size:16px">Tax year data</h3>
     <div class="card">
       <div class="cardhead"><h3>Where the year is spent</h3><span class="count">booked and planned</span></div>
       ${yrs.map(y => {
@@ -1305,16 +1296,7 @@ function viewDays(){
           : room === 0 ? `No room left in ${y} — exactly on the 183 mark`
           : `<b>${-room}</b> day${room === -1 ? "" : "s"} past the point where you drop below 183 in Spain`}</div>`;
       }).join("")}
-    </div>
-    <p class="count">Every dated trip counts, whether it has happened yet or not, so a trip booked
-       for December is already in this year's figures. Dark blue is time in Spain, pale blue is
-       time away, and the red line sits at 183 days. The note on the right refers to the pale
-       blue — while time away stays below the mark you have spent more than half the year in
-       Spain, which is the normal position for a resident here.</p>
-    <p class="count">A rough count: it assumes every day not on a listed trip was spent in Spain,
-       so years where you have entered no trips will read as a full year at home. Tax residency
-       does not turn on the day count alone — where your main economic interests and family sit
-       also weigh in. Worth a word with a gestor rather than a reading off this screen.</p>`;
+    </div>`;
 
     const { peak } = schengenPeak(schengen);
     html += `<div class="card"><div class="cardhead"><h3>When you move to the UK</h3></div>
