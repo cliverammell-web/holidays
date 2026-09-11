@@ -104,9 +104,16 @@ header{
 .jbox.quiet{background:var(--accent-soft);color:var(--accent)}
 .jbox.quiet b{font-size:15px;font-weight:600}
 .jtrack{position:relative;height:2px;background:var(--line);margin:11px 0 0}
+.tl{position:relative;display:flex;height:7px;border-radius:999px;overflow:visible;margin:12px 0 5px}
+.tl-plan{background:#CFE2F3;border-radius:999px 0 0 999px}
+.tl-trip{background:var(--accent);border-radius:0 999px 999px 0}
+.tl-tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--accent);transform:translateX(-1px)}
+.tl .jdot{top:-2px;border-color:var(--card)}
+.tlkey{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
 .jfill{position:absolute;left:0;top:0;height:2px;background:var(--accent-hi)}
 .jdot{position:absolute;top:-4px;width:10px;height:10px;border-radius:50%;
   background:var(--accent);border:2px solid var(--card);transform:translateX(-5px)}
+
 
 /* ---------- tabs ---------- */
 nav{
@@ -517,6 +524,14 @@ function blankStore(){
   };
 }
 /* Fill in anything a file or an older version might be missing */
+/* ids start with Date.now() in base 36, so an existing trip can tell us
+   roughly when it was added */
+function bornFromId(id){
+  const ms = parseInt(String(id).slice(0, 8), 36);
+  if (!ms || ms < Date.UTC(2020, 0, 1) || ms > Date.now() + 864e5) return null;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
 function normalise(s){
   s.trips = s.trips || [];
   s.trips.forEach(t => {
@@ -526,6 +541,7 @@ function normalise(s){
     t.take.forEach(i => { if (!i.who) i.who = EVERYONE; });
     t.gone = [...new Map(t.gone.map(g => [g.id, g])).values()];   /* clears any past duplication */
     if (t.zone === undefined) t.zone = "schengen";
+    if (!t.created) t.created = bornFromId(t.id) || t.depart || todayISO();
   });
   s.catTake = s.catTake || []; s.catBring = s.catBring || []; s.catTodo = s.catTodo || [];
   s.goneTrips = [...new Map((s.goneTrips || []).map(g => [g.id, g])).values()];
@@ -594,7 +610,7 @@ function bury(t, id){ t.gone = t.gone || []; if (!t.gone.some(g => g.id === id))
 const travellers = () => (trip()?.travellers || []);
 
 function newTrip(){
-  return { id: uid(), name: "", dest: "", depart: "", ret: "", travellers: [], zone: "schengen",
+  return { id: uid(), created: todayISO(), name: "", dest: "", depart: "", ret: "", travellers: [], zone: "schengen",
            take: [], bring: [], todo: [], bookings: [], plan: {}, gone: [], updatedAt: now() };
 }
 
@@ -719,7 +735,38 @@ function renderHeader(){
       ${box}
       <div class="jend right">${esc(t.dest || "Back home")}<b>${fmt(t.ret)}</b></div>
     </div>
-    <div class="jtrack"><div class="jfill" style="width:${pos}%"></div><div class="jdot" style="left:${pos}%"></div></div>`;
+    ${timeline(t)}`;
+}
+
+
+/* A bar spanning this trip's own life: from the day it was added, through
+   departure, to the day you come home. The dot is today. */
+function timeline(t){
+  if (!t.depart) return "";
+  const end = t.ret || t.depart;
+  const from = (t.created && t.created < t.depart) ? t.created : t.depart;
+  const span = days(from, end) + 1;
+  if (!span || span < 1) return "";
+
+  const planPct = Math.max(0, days(from, t.depart) / span * 100);
+  const tripPct = Math.max(3, 100 - planPct);          /* keep short trips visible */
+  const plan = Math.min(planPct, 100 - tripPct);
+
+  const today = todayISO();
+  let dot = days(from, today) / span * 100;
+  dot = Math.max(0, Math.min(100, dot));
+  const before = today < from, after = today > end;
+
+  return `<div class="tl">
+      <div class="tl-plan" style="width:${plan}%"></div>
+      <div class="tl-trip" style="width:${tripPct}%"></div>
+      <div class="tl-tick" style="left:${plan}%"></div>
+      ${before || after ? "" : `<div class="jdot" style="left:${dot}%"></div>`}
+    </div>
+    <div class="tlkey">
+      <span>Added ${fmt(from)}</span>
+      <span style="text-align:right">Home ${fmt(end)}</span>
+    </div>`;
 }
 
 /* ---------- tabs ---------- */
@@ -1330,8 +1377,8 @@ function viewDays(){
 
 function tools(){
   return `<div class="toolbar">
-    <button class="btn ghost" data-act="export">Export a backup</button>
-    ${isOwner() ? `<button class="btn ghost" data-act="import">Load a backup</button>` : ""}
+    ${isOwner() ? `<button class="btn ghost" data-act="export">Export a backup</button>
+    <button class="btn ghost" data-act="import">Load a backup</button>` : ""}
   </div>
   <div class="syncbar">
     <span class="${SYNC.note && SYNC.note.startsWith("Sync failed") ? "bad" : ""}">${esc(syncLabel())}</span>
@@ -1360,7 +1407,7 @@ document.addEventListener("click", e => {
 
   if (a === "signin"){ user = b.dataset.name; lsSet(UKEY, user); render(); return; }
   if (a === "signout"){ user = ""; lsDel(UKEY); render(); return; }
-  if (a === "export") return doExport();
+  if (a === "export"){ if (!isOwner()) return refuse(); return doExport(); }
   if (a === "import") return doImport();
   /* Packing suggestions are personal, so anyone may edit their own.
      The bring-back list is shared, so it stays with the owner. */
