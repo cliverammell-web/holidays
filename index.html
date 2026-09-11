@@ -1250,20 +1250,30 @@ function viewDays(){
     merged.forEach(r => { const n = days(r.from, r.to) + 1; if (n > longest){ longest = n; longestFrom = r.from; } });
     const FIVE = 1826;                                  /* five consecutive years */
     const away = yearTotals(merged);
-    const yrs = [...new Set([...Object.keys(away), todayISO().slice(0, 4)])].sort().reverse().slice(0, 5);
+    /* every year you have trips in, plus this one — no cap, or old trips vanish */
+    const yrs = [...new Set([...Object.keys(away), todayISO().slice(0, 4)])].sort().reverse();
 
+    const months = (longest / 30.44).toFixed(1);
     html += `<div class="card">
-      <div class="cardhead"><h3>Longest unbroken absence</h3><span class="count">limit 5 consecutive years</span></div>
-      <div class="tot big"><span>${longest ? "Longest trip away" : "No dated trips yet"}</span><b>${longest} day${longest === 1 ? "" : "s"}</b></div>
+      <div class="cardhead"><h3>Longest single absence</h3><span class="count">limit 5 consecutive years</span></div>
+      <div class="tot big"><span>${longest ? "Longest time away in one go" : "No dated trips yet"}</span>
+        <b>${longest} day${longest === 1 ? "" : "s"}</b></div>
       ${gauge(longest, FIVE)}
+      <div class="tot"><span>That is</span><b>${months} months</b></div>
       ${longestFrom ? `<div class="tot"><span>Starting</span><b>${fmt(longestFrom)}</b></div>` : ""}
-      <div class="tot"><span>Of the five years allowed</span><b>${(longest / FIVE * 100).toFixed(1)}%</b></div>
+      <div class="tot"><span>Would need to reach</span><b>1,826 days</b></div>
     </div>
-    <p class="count">Under Article 15(3) of the Withdrawal Agreement, permanent residence is lost
-       only after more than five <em>consecutive</em> years away, so ordinary holidays never
-       threaten it — coming back resets the clock. Note that Spain has not spelled out what
-       counts as a return for this purpose, so a long absence broken only by a brief visit is
-       not settled ground.</p>
+    <p class="count"><b>This is not a running total.</b> Article 15(3) of the Withdrawal Agreement
+       says permanent residence is lost only through absence for a period exceeding five
+       <em>consecutive</em> years. It is not days added up over a rolling five years, and not
+       calendar years either \u2014 every return to Spain puts the clock back to zero. Ten separate
+       six-month trips come to nothing; one unbroken stretch of five years and a day is what
+       matters. Consecutive trips with no gap between them are counted here as one absence.</p>
+    <p class="count">Two rules that look similar but do not apply to you: the 10-months-in-5-years
+       limit governs <em>acquiring</em> permanent residency and excludes UK nationals covered by the
+       Agreement, and the six-months-a-year rule concerns the qualifying period rather than status
+       already held. One grey area remains: Spain has not defined what counts as a "return", so a
+       very long absence broken only by a brief visit is not settled ground.</p>
 
     <div class="card">
       <div class="cardhead"><h3>Where the year is spent</h3><span class="count">booked and planned</span></div>
