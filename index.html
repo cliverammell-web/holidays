@@ -289,6 +289,25 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
   color:#fff;display:grid;place-items:center;font-size:15px;font-weight:600;
 }
 
+#printArea{display:none}
+
+@media print{
+  header, nav, main, dialog, .toolbar{display:none !important}
+  body{background:#fff;color:#000;padding:0;margin:0}
+  #printArea{display:block;padding:0}
+  .pr-head{margin:0 0 10mm}
+  .pr-head h1{font-family:Georgia,serif;font-size:18pt;margin:0 0 2mm}
+  .pr-head p{margin:0;font-size:10pt;color:#444}
+  .pr-day{border:1px solid #999;border-radius:2mm;padding:3mm 4mm;margin:0 0 5mm;page-break-inside:avoid}
+  .pr-day h2{font-size:12pt;margin:0 0 1mm}
+  .pr-day .fixed{font-size:9.5pt;color:#333;margin:0 0 2mm}
+  .pr-day .note{font-size:10pt;margin:0 0 2mm;white-space:pre-wrap}
+  .pr-box{height:30mm;border-top:1px solid #ccc;
+    background-image:repeating-linear-gradient(#fff 0 7mm, #eee 7mm 7.2mm);}
+  .pr-foot{font-size:8.5pt;color:#666;margin-top:6mm}
+  @page{margin:14mm}
+}
+
 dialog{border:0;border-radius:14px;padding:0;width:min(94vw,420px);background:var(--card);color:var(--ink)}
 dialog::backdrop{background:rgba(14,42,71,.5)}
 .dlgbody{padding:16px}
@@ -315,6 +334,7 @@ dialog::backdrop{background:rgba(14,42,71,.5)}
 </header>
 
 <nav id="tabs" role="tablist" hidden></nav>
+<div id="printArea" aria-hidden="true"></div>
 <main id="view"></main>
 
 <dialog id="tripDlg">
@@ -1154,6 +1174,7 @@ function viewPlan(t){
     Add the dates to this trip and the days will appear here, ready to plan.</div></div>` + tools();
 
   let html = RO ? `<p class="locked">Only ${esc(owner())} can change the day plan.</p>` : "";
+  html += `<div class="addrow second"><button class="btn ghost" data-act="printPlan" style="flex:1">Print the day plan</button></div>`;
   html += `<div class="card">${dl.map((date, n) => {
     const on = bookingsOn(t, date);
     const bits = on.map(b => b.start === date
@@ -1169,6 +1190,40 @@ function viewPlan(t){
     </div>`;
   }).join("")}</div>`;
   return html + tools();
+}
+
+
+/* Builds a paper version: one boxed day per entry, with whatever is already
+   booked or planned printed in, and ruled space left to write. */
+function printPlan(){
+  const t = trip(); if (!t) return;
+  const dl = dayList(t);
+  if (!dl.length) return notice("Nothing to print", "Add the dates to this trip first.");
+
+  const days_ = dl.map((date, n) => {
+    const on = bookingsOn(t, date);
+    const fixed = on.map(b => b.start === date
+      ? `${b.type}: ${b.name || ""}${b.time ? " at " + b.time : ""}`
+      : `Staying at ${b.name || b.prov || ""}`).join("  \u00b7  ");
+    const note = t.plan[date] || "";
+    return `<div class="pr-day">
+      <h2>${D(date).toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", timeZone:"UTC" })}
+        \u2014 day ${n + 1} of ${dl.length}</h2>
+      ${fixed ? `<p class="fixed">${esc(fixed)}</p>` : ""}
+      ${note ? `<p class="note">${esc(note)}</p>` : ""}
+      <div class="pr-box"></div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("printArea").innerHTML = `
+    <div class="pr-head">
+      <h1>${esc(t.name || "Trip")}${t.dest ? " \u2014 " + esc(t.dest) : ""}</h1>
+      <p>${fmt(t.depart)} to ${fmt(t.ret || t.depart)}${t.travellers.length ? " \u00b7 " + esc(t.travellers.join(", ")) : ""}</p>
+    </div>
+    ${days_}
+    <p class="pr-foot">Printed ${fmt(todayISO())}</p>`;
+
+  window.print();
 }
 
 /* ============================================================
@@ -1566,6 +1621,7 @@ document.addEventListener("click", e => {
     case "newBook":  return openBook(null);
     case "editBook": return openBook(id);
     case "editPlan": return openPlan(b.dataset.date);
+    case "printPlan": return printPlan();
     case "allTodo": {
       suggestions("todo", t.todo.map(i => i.text)).forEach(c =>
         t.todo.push({ id: uid(), text: c.name, offset: c.offset ?? -7, done: false, updatedAt: now() }));
