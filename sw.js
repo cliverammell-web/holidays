@@ -1,7 +1,7 @@
 /* Trips — service worker
    Bump CACHE whenever you upload a new index.html, or browsers will keep
    serving the old one from the cache. */
-const CACHE = "trips-v9";
+const CACHE = "trips-v10";
 const TIMEOUT = 4000;
 
 /* Split deliberately. cache.addAll is all-or-nothing: one missing file and
