@@ -295,15 +295,17 @@ ul.list li.done .txt{color:var(--muted);text-decoration:line-through}
   header, nav, main, dialog, .toolbar{display:none !important}
   body{background:#fff;color:#000;padding:0;margin:0}
   #printArea{display:block;padding:0}
-  .pr-head{margin:0 0 10mm}
+  .pr-head{margin:0 0 7mm}
   .pr-head h1{font-family:Georgia,serif;font-size:18pt;margin:0 0 2mm}
   .pr-head p{margin:0;font-size:10pt;color:#444}
-  .pr-day{border:1px solid #999;border-radius:2mm;padding:3mm 4mm;margin:0 0 5mm;page-break-inside:avoid}
-  .pr-day h2{font-size:12pt;margin:0 0 1mm}
-  .pr-day .fixed{font-size:9.5pt;color:#333;margin:0 0 2mm}
-  .pr-day .note{font-size:10pt;margin:0 0 2mm;white-space:pre-wrap}
-  .pr-box{height:30mm;border-top:1px solid #ccc;
-    background-image:repeating-linear-gradient(#fff 0 7mm, #eee 7mm 7.2mm);}
+  .pr-cols{column-count:2;column-gap:7mm}
+  .pr-day{border:1px solid #999;border-radius:2mm;padding:2.5mm 3mm;margin:0 0 4mm;
+    break-inside:avoid;page-break-inside:avoid;-webkit-column-break-inside:avoid}
+  .pr-day h2{font-size:10.5pt;margin:0 0 1mm}
+  .pr-day .fixed{font-size:8.5pt;color:#333;margin:0 0 1.5mm}
+  .pr-day .note{font-size:9pt;margin:0 0 1.5mm;white-space:pre-wrap}
+  .pr-box{height:26mm;border-top:1px solid #ccc;
+    background-image:repeating-linear-gradient(#fff 0 6.5mm, #eee 6.5mm 6.7mm);}
   .pr-foot{font-size:8.5pt;color:#666;margin-top:6mm}
   @page{margin:14mm}
 }
@@ -1115,7 +1117,7 @@ function viewTodo(t){
 /* ============================================================
    Bookings
    ============================================================ */
-const BTYPES = ["Flight","Accommodation","Car hire","Ferry","Train","Activity","Other"];
+const BTYPES = ["Flight","Accommodation","Car hire","Diesel/Petrol","Ferry","Train","Activity","Other"];
 const money = (n, cur) => (cur === "GBP" ? "\u00a3" : cur === "USD" ? "$" : "\u20ac") +
   Number(n || 0).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -1220,7 +1222,7 @@ function printPlan(){
       <h1>${esc(t.name || "Trip")}${t.dest ? " \u2014 " + esc(t.dest) : ""}</h1>
       <p>${fmt(t.depart)} to ${fmt(t.ret || t.depart)}${t.travellers.length ? " \u00b7 " + esc(t.travellers.join(", ")) : ""}</p>
     </div>
-    ${days_}
+    <div class="pr-cols">${days_}</div>
     <p class="pr-foot">Printed ${fmt(todayISO())}</p>`;
 
   window.print();
